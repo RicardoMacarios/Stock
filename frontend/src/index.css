@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Camada de token da BASE. Regras e papéis: DESIGN.md na raiz.
+   Cliente não edita este arquivo: muda a cor pelo `tema` do config.js dele
+   ou escreve CSS próprio em src/clientes/<slug>/estilo.css. */
+
+@theme static {
+  --color-fundo: #1A1C1E;        /* fundo de página */
+  --color-card: #24272A;         /* card, campo */
+  --color-elevado: #2E3236;      /* hover */
+  --color-borda: #3A3F44;        /* borda de card, divisória */
+  --color-borda-forte: #5C636B;  /* contorno de controle */
+
+  --color-texto: #ECEEF0;
+  --color-texto-2: #AEB4BA;
+  --color-texto-3: #8D949B;
+
+  --color-ok: #7FC48A;
+  --color-warn: #E3B26A;
+  --color-danger: #E08B77;
+
+  /* Acento: vem do cliente (tema.corPrimaria), padrão abaixo */
+  --color-acento: var(--cor-primaria);
+  --color-sobre-acento: var(--cor-primaria-ink);
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  --radius-controle: 0.5rem;
+}
+
+:root {
+  /* Valores padrão. useTemaDoCliente() sobrescreve no <html>. */
+  --cor-primaria: #4FB3A9;
+  --cor-primaria-ink: #0F1112;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+}

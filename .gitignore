@@ -1,0 +1,11 @@
+# Segredos - nunca commitar
+.env
+.env.*
+!.env.example
+
+# Dependências
+node_modules/
+
+# Sistema
+.DS_Store
+Thumbs.db
