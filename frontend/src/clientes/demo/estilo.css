@@ -1,0 +1,5 @@
+/* CSS que só vale enquanto o cliente demo está na tela.
+   Para cor, prefira tema.corPrimaria no config.js; isto aqui é para o resto. */
+main h1 {
+  letter-spacing: -0.02em;
+}
