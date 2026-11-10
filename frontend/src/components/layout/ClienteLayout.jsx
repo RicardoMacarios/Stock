@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Package, FileText, Settings, ShoppingBag, ShoppingCart, Users, Circle, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, FileText, Settings, ShoppingBag, ShoppingCart, Users, Wallet, Circle, LogOut } from 'lucide-react'
 import { useCliente } from '@/context/useCliente'
 import { useAuth } from '@/context/useAuth'
 import { useTemaDoCliente } from '@/hooks/useTemaDoCliente'
@@ -8,7 +8,7 @@ import Marca from '@/components/ui/Marca'
 
 // Ícones por nome, para config de cliente poder escolher sem importar nada.
 // Ícone novo: importe acima e registre aqui.
-const ICONES = { LayoutDashboard, Package, FileText, Settings, ShoppingBag, ShoppingCart, Users }
+const ICONES = { LayoutDashboard, Package, FileText, Settings, ShoppingBag, ShoppingCart, Users, Wallet }
 
 // Moldura das telas do cliente.
 //   Computador: menu lateral fixo (marca, navegação, usuário).

@@ -152,7 +152,7 @@ function CartaoNumero({ rotulo, valor, unidade, detalhe, icone: Icone, chip = 'b
 }
 
 // ── Vendas do dia ─────────────────────────────────────────────────────────
-// Um dia por vez: semana e mês ficam para o módulo Financeiro. Hoje relê a
+// Um dia por vez: o mês fica na tela Financeiro (pages/financeiro). Hoje relê a
 // cada 30 s e ao voltar para a aba, para o dashboard no balcão acompanhar.
 
 function VendasDoDia({ dia, ehHoje }) {

@@ -10,6 +10,7 @@
 
 const modulos = [
   { chave: 'dashboard', caminho: '', pagina: 'DashboardPage', rotulo: 'Dashboard', icone: 'LayoutDashboard' },
+  { chave: 'financeiro', caminho: 'financeiro', pagina: 'FinanceiroPage', rotulo: 'Financeiro', icone: 'Wallet' },
   { chave: 'vendas', caminho: 'vendas', pagina: 'VendasPage', rotulo: 'Vendas', icone: 'ShoppingCart' },
   { chave: 'condicional', caminho: 'condicional', pagina: 'CondicionalPage', rotulo: 'Condicional', icone: 'ShoppingBag' },
   { chave: 'clientes', caminho: 'clientes', pagina: 'ClientesPage', rotulo: 'Clientes', icone: 'Users' },
