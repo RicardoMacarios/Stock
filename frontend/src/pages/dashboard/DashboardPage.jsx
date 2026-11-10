@@ -5,6 +5,7 @@ import {
   RefreshCw, ShoppingCart, Shirt, TrendingUp, TriangleAlert,
 } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
+import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
 import { dinheiro, inicioDeHoje } from '@/lib/formato'
 import {
@@ -283,10 +284,11 @@ function useProdutos() {
     if (!supabaseConfigurado || !clienteId) return
     let cancelado = false
     // O RLS já limita aos produtos deste cliente; o filtro deixa explícito.
-    supabase
+    todasAsLinhas(() => supabase
       .from('produtos')
       .select('id, nome, quantidade, estoque_minimo, criado_em')
       .eq('cliente_id', clienteId)
+      .order('id'))
       .then(({ data, error }) => {
         if (!cancelado) setResultado({ chave, produtos: data ?? [], erro: Boolean(error) })
       })
