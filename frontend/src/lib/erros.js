@@ -13,6 +13,23 @@ const MENSAGENS = {
   somente_dono: 'Só o dono da conta pode alterar isso.',
   validade_invalida: 'Validade deve ser de 1 a 90 dias.',
   'User already registered': 'Já existe uma conta com este e-mail. Entre com ela e use o código.',
+  produto_nao_encontrado: 'Produto não encontrado. Atualize a página.',
+  quantidade_invalida: 'Informe uma quantidade maior que zero.',
+  estoque_insuficiente: 'Não há estoque suficiente desse produto.',
+  preco_invalido: 'Informe o preço da venda (ou cadastre o preço de venda do produto).',
+  vendedor_obrigatorio: 'Escolha o vendedor.',
+  vendedor_invalido: 'Vendedor não encontrado ou desativado.',
+  venda_nao_encontrada: 'Venda não encontrada. Atualize a página.',
+  carrinho_vazio: 'Bipe ou escolha pelo menos uma peça.',
+  cliente_loja_nao_encontrado: 'Cliente não encontrado. Escolha ou cadastre de novo.',
+  condicional_nao_encontrado: 'Condicional não encontrado. Atualize a página.',
+  condicional_ja_fechado: 'Este condicional já foi acertado.',
+  condicionais_um_aberto_por_cliente: 'Este cliente já está com um condicional em aberto. Acerte o atual primeiro.',
+  condicionais_prazo: 'A data de devolução não pode ser antes do dia em que pegou.',
+  carrinho_grande_demais: 'Carrinho grande demais: divida em duas vendas.',
+  vendedores_nome_unico: 'Já existe um vendedor com esse nome.',
+  produtos_codigo_unico: 'Já existe um produto com esse código.',
+  conta_existente_senha_errada:'Este e-mail já tem conta. Use a mesma senha dela para criar a empresa.',
   'Invalid login credentials': 'E-mail ou senha incorretos.',
   'Email not confirmed': 'Confirme o e-mail antes de entrar (veja sua caixa de entrada).',
   'rate limit': 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
@@ -21,8 +38,18 @@ const MENSAGENS = {
   'Failed to fetch': 'Sem conexão com o servidor. Confira sua internet.',
 }
 
+// Erros de venda que dizem QUAL produto (o banco manda o nome em `details`).
+const COM_PRODUTO = {
+  estoque_insuficiente: (nome) => `Não há estoque suficiente de ${nome}.`,
+  preco_invalido: (nome) => `Informe o preço de ${nome}.`,
+  quantidade_invalida: (nome) => `Quantidade inválida em ${nome}.`,
+  cliente_ja_tem_condicional: (nome) => `${nome} já está com um condicional em aberto. Acerte o atual antes de levar peças de novo.`,
+}
+
 export function traduzirErro(erro) {
   const texto = erro?.message ?? String(erro ?? '')
+  const comProduto = Object.keys(COM_PRODUTO).find((k) => texto.includes(k))
+  if (comProduto && erro?.details) return COM_PRODUTO[comProduto](erro.details)
   const chave = Object.keys(MENSAGENS).find((k) => texto.includes(k))
   if (chave) return MENSAGENS[chave]
   if (/password/i.test(texto)) return 'A senha precisa ter pelo menos 6 caracteres.'
