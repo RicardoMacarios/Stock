@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Check, Undo2, UserPlus, UserRound } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
+import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { dinheiro, horaCurta, quantidade as fmtQtd } from '@/lib/formato'
@@ -28,8 +29,8 @@ export default function VendasPage({ children }) {
 
   const carregarProdutos = useCallback(async () => {
     if (!clienteId) return
-    const { data } = await supabase.from('produtos')
-      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome')
+    const { data } = await todasAsLinhas(() => supabase.from('produtos')
+      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome').order('id'))
     setProdutos(data ?? [])
   }, [clienteId])
 

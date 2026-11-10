@@ -12,6 +12,7 @@ import { classeEntrada } from '@/lib/classes'
 import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import { situacao } from '@/pages/dashboard/resumo'
 import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
+import { todasAsLinhas } from '@/lib/consulta'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -48,9 +49,9 @@ export default function ProdutosPage({ children }) {
 
   const carregar = useCallback(async () => {
     if (!clienteId) return
-    const { data, error } = await supabase.from('produtos')
+    const { data, error } = await todasAsLinhas(() => supabase.from('produtos')
       .select('id, nome, codigo, codigo_legado, quantidade, estoque_minimo, preco_custo, preco_venda, criado_em')
-      .eq('cliente_id', clienteId).order('nome')
+      .eq('cliente_id', clienteId).order('nome').order('id'))
     if (error) toast.error('Não foi possível carregar os produtos.')
     setProdutos((data ?? []).map((p) => ({ ...p, situacao: situacao(p) })))
   }, [clienteId])

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AlarmClock, Banknote, CalendarDays, Check, Minus, Plus, Search, ShoppingBag, Shirt, UserPlus } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
+import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { classeEntrada } from '@/lib/classes'
@@ -226,8 +227,8 @@ function NovoCondicional({ clienteId, vendedores, fechar, salvo, verAberto }) {
   const [enviando, setEnviando] = useState(false)
 
   const carregarProdutos = useCallback(async () => {
-    const { data } = await supabase.from('produtos')
-      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda').eq('cliente_id', clienteId).order('nome')
+    const { data } = await todasAsLinhas(() => supabase.from('produtos')
+      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda').eq('cliente_id', clienteId).order('nome').order('id'))
     setProdutos(data ?? [])
   }, [clienteId])
   useEffect(() => {
@@ -392,8 +393,8 @@ function Acerto({ cond: c, vendedores, fechar, salvo }) {
   // Produtos só quando for adicionar peça (no acerto aberto).
   useEffect(() => {
     if (!aberto || !adicionando || produtos) return
-    supabase.from('produtos').select('id, nome, codigo, codigo_legado, quantidade, preco_venda')
-      .eq('cliente_id', c.cliente_id).order('nome')
+    todasAsLinhas(() => supabase.from('produtos').select('id, nome, codigo, codigo_legado, quantidade, preco_venda')
+      .eq('cliente_id', c.cliente_id).order('nome').order('id'))
       .then(({ data }) => setProdutos(data ?? []))
   }, [aberto, adicionando, produtos, c.cliente_id])
 
