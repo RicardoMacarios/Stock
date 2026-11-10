@@ -15,12 +15,16 @@ o resto vem da base.
 
 ## Cliente novo (convite)
 
-1. Em `/admin`, clique **Gerar código**. Sai um código único (`K7Q2-M9XA`) que
-   vale para um cadastro só e expira (7 dias por padrão). O link
-   `/cadastro?codigo=...` vai copiado.
-   - *Endereço fixo* (opcional): você define o slug. Vazio = sai do nome que
-     o cliente digitar (Mercado do Zé → `mercado-do-ze`; se já existir, `-2`).
-2. Mande o link para o cliente. Ele informa o nome da empresa, e-mail e senha.
+1. Em `/admin`, em **Convites**, anote *para quem* (opcional), escolha quanto
+   tempo **vale** (5 min, 30 min ou 4 horas) e clique **Gerar convite**. Sai
+   um código único (`K7Q2-M9XA`) que vale para um cadastro só; o link
+   `/cadastro?codigo=...` vai copiado, e a lista mostra a contagem regressiva,
+   quem usou e qual cliente virou.
+   - O endereço sai do nome que o cliente digitar (Mercado do Zé →
+     `mercado-do-ze`; se já existir, `-2`). Para fixar um endereço, a RPC
+     `gerar_convite` aceita `p_slug` (sem campo na tela por enquanto).
+2. Mande o link para o cliente (o botão **WhatsApp** já abre a conversa com o
+   link pronto). Ele informa o nome da empresa, e-mail e senha.
 3. O banco confere o código e, de uma vez, cria a conta, o cliente com o slug
    (**a URL já funciona**), o vínculo dele como dono e queima o código.
 4. No seu computador:
