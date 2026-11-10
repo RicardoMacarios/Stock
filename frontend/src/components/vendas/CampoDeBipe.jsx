@@ -3,21 +3,21 @@ import toast from 'react-hot-toast'
 import { Camera, ScanBarcode } from 'lucide-react'
 import { useLeitorDeCodigo } from '@/hooks/useLeitorDeCodigo'
 import { dinheiro, quantidade as fmtQtd } from '@/lib/formato'
+import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 
 // Câmera só baixa a biblioteca de leitura (ZXing) quando abre.
 const LeitorCamera = lazy(() => import('@/components/ui/LeitorCamera'))
 
 // Achar um produto para pôr numa lista (venda, condicional): pistola em
-// qualquer ponto da tela, câmera ou busca pelo nome. Chama aoEscolher(produto).
+// qualquer ponto da tela, câmera ou busca pelo nome ou parte do código. Chama aoEscolher(produto).
 // `ativo` desliga a escuta da pistola (ex.: quando um painel está aberto).
-export default function CampoDeBipe({ produtos, aoEscolher, ativo = true, placeholder = 'Bipe o código ou digite o nome' }) {
+export default function CampoDeBipe({ produtos, aoEscolher, ativo = true, placeholder = 'Bipe, digite o nome ou parte do código' }) {
   const [busca, setBusca] = useState('')
   const [camera, setCamera] = useState(false)
 
   const encontrados = useMemo(() => {
-    const q = busca.trim().toLowerCase()
-    if (!q || !produtos) return []
-    return produtos.filter((p) => p.nome.toLowerCase().includes(q) || p.codigo?.toLowerCase() === q).slice(0, 8)
+    if (!busca.trim() || !produtos) return []
+    return buscarProdutos(produtos, busca).slice(0, 8)
   }, [produtos, busca])
 
   function escolher(p) {
@@ -27,8 +27,7 @@ export default function CampoDeBipe({ produtos, aoEscolher, ativo = true, placeh
 
   function bipar(texto) {
     const codigo = texto.trim()
-    const p = produtos?.find((x) => x.codigo === codigo) ??
-      produtos?.find((x) => x.codigo?.toLowerCase() === codigo.toLowerCase())
+    const p = acharPorCodigo(produtos, codigo)
     if (!p) { setBusca(''); return toast.error(`Código ${codigo} não cadastrado. Cadastre em Produtos.`) }
     escolher(p)
   }
@@ -39,7 +38,7 @@ export default function CampoDeBipe({ produtos, aoEscolher, ativo = true, placeh
     e.preventDefault()
     const q = busca.trim()
     if (!q) return
-    if (produtos?.some((p) => p.codigo?.toLowerCase() === q.toLowerCase())) return bipar(q)
+    if (acharPorCodigo(produtos, q)) return bipar(q)
     if (encontrados.length === 1) return escolher(encontrados[0])
     if (encontrados.length === 0) toast.error(`Nada encontrado para “${q}”.`)
   }
@@ -69,6 +68,7 @@ export default function CampoDeBipe({ produtos, aoEscolher, ativo = true, placeh
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{p.nome}</span>
                   <span className="block text-xs text-texto-3">
+                    {p.codigo_legado != null && <span className="font-mono">#{p.codigo_legado} · </span>}
                     {Number(p.quantidade) <= 0 ? 'sem estoque' : `${fmtQtd(p.quantidade)} em estoque`}
                   </span>
                 </span>

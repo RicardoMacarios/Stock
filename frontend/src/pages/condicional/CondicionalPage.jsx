@@ -227,7 +227,7 @@ function NovoCondicional({ clienteId, vendedores, fechar, salvo, verAberto }) {
 
   const carregarProdutos = useCallback(async () => {
     const { data } = await supabase.from('produtos')
-      .select('id, nome, codigo, quantidade, preco_venda').eq('cliente_id', clienteId).order('nome')
+      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda').eq('cliente_id', clienteId).order('nome')
     setProdutos(data ?? [])
   }, [clienteId])
   useEffect(() => {
@@ -392,7 +392,7 @@ function Acerto({ cond: c, vendedores, fechar, salvo }) {
   // Produtos só quando for adicionar peça (no acerto aberto).
   useEffect(() => {
     if (!aberto || !adicionando || produtos) return
-    supabase.from('produtos').select('id, nome, codigo, quantidade, preco_venda')
+    supabase.from('produtos').select('id, nome, codigo, codigo_legado, quantidade, preco_venda')
       .eq('cliente_id', c.cliente_id).order('nome')
       .then(({ data }) => setProdutos(data ?? []))
   }, [aberto, adicionando, produtos, c.cliente_id])

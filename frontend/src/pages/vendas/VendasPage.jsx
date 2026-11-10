@@ -29,7 +29,7 @@ export default function VendasPage({ children }) {
   const carregarProdutos = useCallback(async () => {
     if (!clienteId) return
     const { data } = await supabase.from('produtos')
-      .select('id, nome, codigo, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome')
+      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome')
     setProdutos(data ?? [])
   }, [clienteId])
 

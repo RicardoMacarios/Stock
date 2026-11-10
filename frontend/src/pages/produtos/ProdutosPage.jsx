@@ -11,6 +11,7 @@ import { traduzirErro } from '@/lib/erros'
 import { classeEntrada } from '@/lib/classes'
 import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import { situacao } from '@/pages/dashboard/resumo'
+import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -48,7 +49,7 @@ export default function ProdutosPage({ children }) {
   const carregar = useCallback(async () => {
     if (!clienteId) return
     const { data, error } = await supabase.from('produtos')
-      .select('id, nome, codigo, quantidade, estoque_minimo, preco_custo, preco_venda, criado_em')
+      .select('id, nome, codigo, codigo_legado, quantidade, estoque_minimo, preco_custo, preco_venda, criado_em')
       .eq('cliente_id', clienteId).order('nome')
     if (error) toast.error('Não foi possível carregar os produtos.')
     setProdutos((data ?? []).map((p) => ({ ...p, situacao: situacao(p) })))
@@ -62,8 +63,8 @@ export default function ProdutosPage({ children }) {
   // Bipou: peça cadastrada → mostra; nova → abre o cadastro com o código
   // preenchido (cadastrar a coleção é bipar e completar).
   function bipou(codigo) {
-    const p = produtos?.find((x) => x.codigo?.toLowerCase() === codigo.toLowerCase())
-    if (p) { setFiltro('todos'); setBusca(p.codigo) } else setEditando({ produto: null, codigo })
+    const p = acharPorCodigo(produtos, codigo)
+    if (p) { setFiltro('todos'); setBusca(codigo.trim()) } else setEditando({ produto: null, codigo })
   }
   useLeitorDeCodigo(bipou, { ativo: !editando && !camera })
 
@@ -80,11 +81,12 @@ export default function ProdutosPage({ children }) {
   }, [produtos])
 
   const lista = useMemo(() => {
-    const q = busca.trim().toLowerCase()
-    return (produtos ?? [])
+    // Ordena antes e busca depois: com busca, o mais relevante (código exato)
+    // sobe e o empate fica na ordem escolhida.
+    const ordenados = (produtos ?? [])
       .filter((p) => filtro === 'todos' || p.situacao === filtro)
-      .filter((p) => !q || p.nome.toLowerCase().includes(q) || p.codigo?.toLowerCase() === q)
       .sort(ORDENS[ordem].comparar)
+    return buscarProdutos(ordenados, busca)
   }, [produtos, busca, filtro, ordem])
 
   if (!supabaseConfigurado) {
@@ -119,7 +121,7 @@ export default function ProdutosPage({ children }) {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <ScanBarcode size={18} aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-acento" />
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pelo nome ou bipar o código"
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pelo nome, parte do código ou bipar"
                 aria-label="Buscar produto" className={`${classeEntrada} h-12 pl-11`} />
               {busca && (
                 <button onClick={() => setBusca('')} aria-label="Limpar busca"
@@ -236,6 +238,7 @@ function LinhaProduto({ produto: p, editar, mudou }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{p.nome}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-texto-3">
+            {p.codigo_legado != null && <span className="rounded bg-elevado px-1.5 py-0.5 font-mono text-texto-2" title="Código antigo">#{p.codigo_legado}</span>}
             {p.codigo && <span className="rounded bg-fundo px-1.5 py-0.5 font-mono">{p.codigo}</span>}
             <span>custo {p.preco_custo != null ? dinheiro(p.preco_custo) : '—'}</span>
             {margem !== null && <span className="text-texto-2">· margem {margem}%</span>}
