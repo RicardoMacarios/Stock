@@ -2,8 +2,12 @@
 
 Estrutura montada: base única, cliente por slug (`/mercado-do-ze`), personalização
 em `frontend/src/clientes/<slug>/`, cadastro por código de convite e painel
-`/admin`. Build e lint passando. **Nada testado com banco ainda: o Supabase não
-foi criado.** Nada commitado.
+`/admin`, tela de Configurações (cor, logo e nome no banco). Build e lint
+passando. **Nada testado com banco ainda: o Supabase não foi criado.** Tudo
+commitado e no GitHub (`RicardoMacarios/Stock`, branch `main`).
+
+A regra de onde fica cada personalização está no [CLAUDE.md](../CLAUDE.md):
+cor, logo e nome no banco; o resto é código em `src/clientes/<slug>/`.
 
 Sem banco, dá para ver a base em modo de teste: `cd frontend && npm run dev` →
 `http://localhost:5173/demo` (sem login nem convite).
@@ -76,3 +80,69 @@ código para terminar.
 - Não há "esqueci minha senha" nem convite de mais usuários para o mesmo
   cliente (hoje: criar o usuário no Supabase e inserir em `cliente_membros`).
 - Depois de aplicar as migrations, gerar `supabase/schema.sql`.
+
+---
+
+## Como continuar o desenvolvimento
+
+Receitas para o dia a dia. A explicação completa está em [CLIENTES.md](CLIENTES.md).
+
+### Criar uma tela nova para TODOS os clientes
+
+1. Crie a pasta e o arquivo: `frontend/src/pages/produtos/ProdutosPage.jsx`.
+   O nome do arquivo precisa ser único em `src/pages`.
+2. Se algum cliente puder querer acrescentar algo nela, receba `children` e
+   renderize `{children}` onde o acréscimo deve aparecer (veja `DashboardPage`).
+3. Registre em `frontend/src/config/modulos.js`:
+   ```js
+   { chave: 'produtos', caminho: 'produtos', pagina: 'ProdutosPage', rotulo: 'Produtos', icone: 'Package' },
+   ```
+4. Ícone novo: importe do `lucide-react` e adicione em `ICONES` no
+   `src/components/layout/ClienteLayout.jsx`.
+5. Precisa de tabela? Migration nova em `supabase/migrations/` com `cliente_id`
+   e a policy `eh_membro(cliente_id)` (copie o molde de `produtos` na primeira
+   migration).
+
+### Personalizar para UM cliente só
+
+Tudo dentro de `frontend/src/clientes/<slug>/`. Nunca mexa na base para isso.
+
+- **Botão ou bloco a mais numa tela:** crie `paginas/<MesmoNomeDaTela>.jsx`:
+  ```jsx
+  import Base from '@/pages/dashboard/DashboardPage'
+
+  export default function DashboardPage() {
+    return (
+      <Base>
+        <button>Botão só deste cliente</button>
+      </Base>
+    )
+  }
+  ```
+- **Aba nova só dele:** crie `paginas/RelatorioPage.jsx` e ligue no `config.js`:
+  ```js
+  rotasExtras: [{ caminho: 'relatorio', pagina: 'RelatorioPage', rotulo: 'Relatório', icone: 'FileText' }],
+  ```
+- **Esconder um módulo da base:** no `config.js`, `modulos: { produtos: false }`.
+- **Trocar uma tela inteira:** `paginas/<MesmoNome>.jsx` sem importar a base
+  (essa tela para de receber as correções da base).
+- **Trocar um componente** (até o menu lateral): `componentes/<MesmoNome>.jsx`,
+  ex.: `componentes/ClienteLayout.jsx`.
+- **CSS só dele:** `estilo.css` na pasta.
+- **Cor, logo e nome:** não é código, o próprio cliente muda em Configurações.
+
+### Dois clientes pediram a mesma coisa
+
+Vira opção da base: adicione a chave em `src/config/padrao.js` com o valor
+desligado, faça a tela da base respeitar essa chave e ligue no `config.js` de
+cada cliente que quiser.
+
+### Antes de subir
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Migration e o código que depende dela vão no **mesmo commit**.
