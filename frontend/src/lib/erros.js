@@ -10,6 +10,7 @@ const MENSAGENS = {
   slug_em_uso: 'Esse endereço já está em uso.',
   nao_autenticado: 'Sua sessão expirou. Entre de novo.',
   somente_admin: 'Só o administrador pode fazer isso.',
+  somente_dono: 'Só o dono da conta pode alterar isso.',
   validade_invalida: 'Validade deve ser de 1 a 90 dias.',
   'User already registered': 'Já existe uma conta com este e-mail. Entre com ela e use o código.',
   'Invalid login credentials': 'E-mail ou senha incorretos.',

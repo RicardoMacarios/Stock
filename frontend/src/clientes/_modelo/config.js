@@ -3,7 +3,8 @@
 // Declare SÓ o que for diferente de src/config/padrao.js. Chave ausente aqui =
 // vale o padrão, e continua acompanhando a base quando ela mudar.
 //
-// Exemplos (descomente o que precisar):
+// Cor, logo e nome o próprio cliente troca em Configurações (fica no banco).
+// Aqui é para o que é código. Exemplos (descomente o que precisar):
 
 export default {
   // tema: { corPrimaria: '#E0A43B', corPrimariaInk: '#14110A', logo: '/clientes/__SLUG__/logo.png' },

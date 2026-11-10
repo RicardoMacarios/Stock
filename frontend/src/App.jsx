@@ -37,13 +37,13 @@ function RaizDoCliente() {
 }
 
 function RotasDoCliente() {
-  const { estado, config } = useCliente()
+  const { estado, config, ehDono } = useCliente()
 
   if (estado === 'carregando') return null
   if (estado === 'inativo') return <Aviso texto="Este acesso está temporariamente suspenso." />
   if (estado !== 'ok') return <Aviso texto="Não encontramos este endereço." />
 
-  const itens = itensDeMenu(config)
+  const itens = itensDeMenu(config, { ehDono })
   const temIndex = itens.some((item) => !item.caminho)
 
   // Tudo passa por <Pagina>/<Componente>: qualquer tela (inclusive o login) ou

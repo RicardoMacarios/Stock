@@ -10,13 +10,15 @@
 
 const modulos = [
   { chave: 'dashboard', caminho: '', pagina: 'DashboardPage', rotulo: 'Dashboard', icone: 'LayoutDashboard' },
+  // soDono: some do menu e da rota para quem não é dono (o banco também barra).
+  { chave: 'configuracoes', caminho: 'configuracoes', pagina: 'ConfiguracoesPage', rotulo: 'Configurações', icone: 'Settings', soDono: true },
 ]
 
 export default modulos
 
 // Menu e rotas do cliente: módulos da base ligados para ele + as rotas extras
 // que só ele tem (config.rotasExtras, com páginas em src/clientes/<slug>/paginas).
-export function itensDeMenu(config) {
-  const base = modulos.filter((m) => config.modulos?.[m.chave] !== false)
+export function itensDeMenu(config, { ehDono = false } = {}) {
+  const base = modulos.filter((m) => config.modulos?.[m.chave] !== false && (!m.soDono || ehDono))
   return [...base, ...(config.rotasExtras ?? [])]
 }

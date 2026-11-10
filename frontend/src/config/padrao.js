@@ -9,6 +9,8 @@ const padrao = {
   // Nome exibido. Sobrescrito pelo nome cadastrado no banco quando houver.
   nome: 'Stock',
 
+  // Cor, logo e nome que o dono define em Configurações ficam no BANCO e
+  // ganham destes valores e dos do config.js do cliente.
   tema: {
     corPrimaria: '#4FB3A9',
     corPrimariaInk: '#0F1112', // texto SOBRE a cor primária (escuro ou claro, o que contrastar)
