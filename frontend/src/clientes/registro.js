@@ -13,12 +13,12 @@
 import { lazy } from 'react'
 import padrao from '@/config/padrao'
 
-const SEM_MOLDE = '!./_modelo/**'
-
-const configs = import.meta.glob(['./*/config.js', SEM_MOLDE], { eager: true, import: 'default' })
-const paginasCliente = import.meta.glob(['./*/paginas/*.jsx', SEM_MOLDE])
-const componentesCliente = import.meta.glob(['./*/componentes/*.jsx', SEM_MOLDE])
-const estilosCliente = import.meta.glob(['./*/estilo.css', SEM_MOLDE], { query: '?inline', import: 'default' })
+// O _modelo é só o molde de pasta nova, não um cliente. O Vite exige texto
+// literal nos padrões do glob (nada de constante), por isso a repetição.
+const configs = import.meta.glob(['./*/config.js', '!./_modelo/**'], { eager: true, import: 'default' })
+const paginasCliente = import.meta.glob(['./*/paginas/*.jsx', '!./_modelo/**'])
+const componentesCliente = import.meta.glob(['./*/componentes/*.jsx', '!./_modelo/**'])
+const estilosCliente = import.meta.glob(['./*/estilo.css', '!./_modelo/**'], { query: '?inline', import: 'default' })
 
 const paginasBase = import.meta.glob('../pages/**/*.jsx')
 // ErrorBoundary fica fora: envolve o app inteiro, antes de existir cliente.
