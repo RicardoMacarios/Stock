@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Check, Undo2, UserRound } from 'lucide-react'
+import { Check, Undo2, UserPlus, UserRound } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
@@ -11,6 +11,8 @@ import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
 import Passo from '@/components/vendas/Passo'
 import SeletorDeVendedor from '@/components/vendas/SeletorDeVendedor'
+import { BuscaCliente, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
+import { CLIENTE_VAZIO, salvarCliente, useClientesDaLoja } from '@/pages/clientes/dados'
 import { agruparPedidos, corDoVendedor, totaisDasVendas, useVendasDeHoje, useVendedores } from './dados'
 
 // /:slug/vendas — o caixa. Escolhe o vendedor, bipa as peças (pistola ou
@@ -59,7 +61,7 @@ export default function VendasPage({ children }) {
 
       <div className="grid gap-4 lg:grid-cols-5 lg:items-start lg:gap-6">
         <div className="lg:col-span-3">
-          <Caixa produtos={produtos} vendedores={vendedores.filter((v) => v.ativo)} todosVendedores={vendedores}
+          <Caixa clienteId={clienteId} produtos={produtos} vendedores={vendedores.filter((v) => v.ativo)} todosVendedores={vendedores}
             slug={slug} ehDono={ehDono} finalizou={atualizar} />
         </div>
         <div className="lg:col-span-2">
@@ -82,11 +84,12 @@ function Resumo({ rotulo, valor }) {
 
 // ── Caixa ─────────────────────────────────────────────────────────────────
 
-function Caixa({ produtos, vendedores, todosVendedores, slug, ehDono, finalizou }) {
+function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono, finalizou }) {
   const [vendedorId, setVendedorId] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const carrinho = useCarrinho()
   const precisaVendedor = vendedores.length > 0
+  const [pessoa, setPessoa] = useState(null) // cliente da compra (opcional)
 
   async function finalizar() {
     if (precisaVendedor && !vendedorId) return toast.error('Escolha quem vendeu.')
@@ -94,12 +97,15 @@ function Caixa({ produtos, vendedores, todosVendedores, slug, ehDono, finalizou 
     if (carrinho.semPreco) return toast.error(`Informe o preço de ${carrinho.semPreco.produto.nome}.`)
 
     setEnviando(true)
-    const { error } = await supabase.rpc('registrar_pedido', { p_itens: carrinho.paraEnviar(), p_vendedor_id: vendedorId })
+    const { error } = await supabase.rpc('registrar_pedido', {
+      p_itens: carrinho.paraEnviar(), p_vendedor_id: vendedorId, p_cliente_loja_id: pessoa?.id ?? null,
+    })
     setEnviando(false)
     if (error) return toast.error(traduzirErro(error))
     const vendedor = vendedores.find((v) => v.id === vendedorId)
     toast.success(`Venda de ${dinheiro(carrinho.total)} registrada${vendedor ? ` · ${vendedor.nome}` : ''}`)
     carrinho.limpar()
+    setPessoa(null) // a próxima compra é de outra pessoa
     finalizou()
     // O vendedor fica escolhido: o mesmo costuma atender várias seguidas.
   }
@@ -122,6 +128,9 @@ function Caixa({ produtos, vendedores, todosVendedores, slug, ehDono, finalizou 
           )}
         </div>
       </div>
+
+      {/* Cliente (opcional): a compra entra na ficha dele */}
+      <ClienteDaCompra clienteId={clienteId} pessoa={pessoa} setPessoa={setPessoa} />
 
       {/* 2. Peças */}
       <div className="space-y-4 p-4 md:p-5">
@@ -151,6 +160,63 @@ function Caixa({ produtos, vendedores, todosVendedores, slug, ehDono, finalizou 
         </div>
       </div>
     </section>
+  )
+}
+
+// ── Cliente da compra (opcional) ──────────────────────────────────────────
+// Fechado: só um botão "Adicionar cliente". Escolhido: cartão com a ficha.
+// Cadastrar ali mesmo salva na hora e já escolhe.
+
+function ClienteDaCompra({ clienteId, pessoa, setPessoa }) {
+  const clientes = useClientesDaLoja(clienteId)
+  const [modo, setModo] = useState(null) // null | 'buscar' | 'novo'
+  const [novo, setNovo] = useState(CLIENTE_VAZIO)
+  const [salvando, setSalvando] = useState(false)
+
+  async function cadastrar() {
+    if (!novo.nome.trim()) return toast.error('Informe o nome do cliente.')
+    setSalvando(true)
+    const { data, error } = await salvarCliente(clienteId, novo)
+    setSalvando(false)
+    if (error) return toast.error(traduzirErro(error))
+    setPessoa(data)
+    setModo(null)
+    setNovo(CLIENTE_VAZIO)
+    clientes.recarregar()
+  }
+
+  return (
+    <div className="border-b border-borda p-4 md:p-5">
+      <Passo numero="·" titulo="Cliente" extra={<span className="text-xs text-texto-3">opcional · a compra entra na ficha</span>} />
+      <div className="mt-3">
+        {pessoa ? (
+          <CartaoCliente cliente={clientes.lista.find((c) => c.id === pessoa.id) ?? pessoa} trocar={() => setPessoa(null)} />
+        ) : modo === 'novo' ? (
+          <div className="space-y-3 rounded-2xl border border-acento/40 bg-acento/5 p-4">
+            <FormCliente valor={novo} mudar={setNovo} />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setModo('buscar')} className="flex-1 rounded-xl border border-borda-forte py-2.5 text-sm text-texto-2 hover:bg-elevado">Voltar</button>
+              <button type="button" onClick={cadastrar} disabled={salvando}
+                className="flex-[2] rounded-xl bg-acento py-2.5 text-sm font-semibold text-sobre-acento disabled:opacity-60">
+                {salvando ? 'Salvando…' : 'Cadastrar e usar'}
+              </button>
+            </div>
+          </div>
+        ) : modo === 'buscar' ? (
+          <div className="space-y-2">
+            <BuscaCliente clientes={clientes.lista} compacto
+              escolher={(c) => { setPessoa(c); setModo(null) }}
+              cadastrar={(nome) => { setNovo({ ...CLIENTE_VAZIO, nome }); setModo('novo') }} />
+            <button type="button" onClick={() => setModo(null)} className="text-xs text-texto-3 hover:text-texto">Venda sem cliente</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setModo('buscar')}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-borda-forte py-2.5 text-sm text-texto-2 transition hover:border-acento hover:text-acento">
+            <UserPlus size={16} /> Adicionar cliente
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

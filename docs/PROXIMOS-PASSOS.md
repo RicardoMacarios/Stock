@@ -1,10 +1,16 @@
 # Onde este projeto está — 10 de novembro de 2026
 
 Estrutura montada: base única, cliente por slug (`/mercado-do-ze`), personalização
-em `frontend/src/clientes/<slug>/`, cadastro por código de convite e painel
-`/admin`, tela de Configurações (cor, logo e nome no banco). Build e lint
-passando. **Nada testado com banco ainda: o Supabase não foi criado.** Tudo
-commitado e no GitHub (`RicardoMacarios/Stock`, branch `main`).
+em `frontend/src/clientes/<slug>/`, cadastro por convite e painel `/admin`.
+
+Módulos de cada loja (menu): **Dashboard** (vendas do dia, gráfico por vendedor,
+estoque), **Vendas** (caixa com carrinho e leitor de código), **Condicional**
+(peças para provar em casa, com acerto), **Clientes** (cadastro e ficha),
+**Produtos** e **Configurações** (aparência e vendedores).
+
+**Supabase criado** (projeto `Stock`, `sa-east-1`) com todas as migrations de
+`supabase/migrations/` aplicadas. Loja de teste: `/estoque-teste`, com dados de
+exemplo. Tudo no GitHub (`RicardoMacarios/Stock`, branch `main`).
 
 A regra de onde fica cada personalização está no [CLAUDE.md](../CLAUDE.md):
 cor, logo e nome no banco; o resto é código em `src/clientes/<slug>/`.
@@ -26,10 +32,8 @@ Duas opções:
 - **Fazer pelo site:**
   1. supabase.com → **New project** → nome `stock`, região South America (São
      Paulo). Anote a senha do banco.
-  2. **SQL Editor** → rode, nesta ordem:
-     - `supabase/migrations/20261109233000_clientes_por_slug.sql`
-     - `supabase/migrations/20261110000000_convites.sql`
-     - `supabase/migrations/20261110120000_aparencia_do_cliente.sql`
+  2. **SQL Editor** → rode **todos** os arquivos de `supabase/migrations/`, na
+     ordem do nome (a data no começo).
   3. **Authentication → Users → Add user** → crie seu usuário, copie o ID e rode:
      ```sql
      insert into public.plataforma_admins (user_id) values ('<seu id>');
@@ -47,7 +51,7 @@ SUPABASE_SERVICE_ROLE_KEY=<chave service_role>   # só no seu computador, NUNCA 
 
 ### 3. Testar o fluxo completo
 
-1. `npm run dev` → `/login` → entrar (o admin cai no `/admin`) → **Gerar código**.
+1. `npm run dev` → `/login` → entrar (o admin cai no `/admin`) → **Gerar convite** (vale 5 min por padrão).
 2. Abrir o link copiado (`/cadastro?codigo=...`) numa aba anônima e cadastrar
    uma empresa de teste.
 3. Conferir que caiu em `/<slug>` já logado.
@@ -80,11 +84,13 @@ hora; para produção, configure um SMTP próprio (Authentication → Emails →
 
 ## Pendências conhecidas
 
-- A tabela `produtos` existe na migration, mas não tem tela. Tirar se não for usar.
 - O admin ainda não suspende nem reativa cliente pela tela (hoje: `update
   public.clientes set ativo = false where slug = '...'` no SQL Editor).
-- Não há "esqueci minha senha" nem convite de mais usuários para o mesmo
-  cliente (hoje: criar o usuário no Supabase e inserir em `cliente_membros`).
+- Não há convite de mais usuários para a mesma loja: vendedores são só nomes
+  (sem login). Para entrar de outro aparelho, usa-se a conta do dono.
+- Financeiro (semana, mês, totais) ainda não existe: o dashboard mostra um dia
+  por vez.
+- A câmera para ler código só funciona em https (ou localhost).
 - Depois de aplicar as migrations, gerar `supabase/schema.sql`.
 
 ---
