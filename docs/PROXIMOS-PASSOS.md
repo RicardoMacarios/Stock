@@ -47,7 +47,7 @@ SUPABASE_SERVICE_ROLE_KEY=<chave service_role>   # só no seu computador, NUNCA 
 
 ### 3. Testar o fluxo completo
 
-1. `npm run dev` → `/admin` → entrar → **Gerar código**.
+1. `npm run dev` → `/login` → entrar (o admin cai no `/admin`) → **Gerar código**.
 2. Abrir o link copiado (`/cadastro?codigo=...`) numa aba anônima e cadastrar
    uma empresa de teste.
 3. Conferir que caiu em `/<slug>` já logado.
@@ -60,6 +60,12 @@ SUPABASE_SERVICE_ROLE_KEY=<chave service_role>   # só no seu computador, NUNCA 
 Decidir: **Confirm email** ligado ou desligado no Supabase (Authentication →
 Providers → Email). Ligado, o cliente confirma o e-mail e volta com o mesmo
 código para terminar.
+
+**Esqueci a senha:** em Authentication → URL Configuration, coloque em
+**Redirect URLs** `http://localhost:5173/redefinir-senha` e, quando publicar,
+`https://<seu-dominio>/redefinir-senha`. Sem isso o link do e-mail não volta
+para o sistema. No plano grátis, o e-mail padrão do Supabase manda poucos por
+hora; para produção, configure um SMTP próprio (Authentication → Emails → SMTP).
 
 ### 4. Publicar
 

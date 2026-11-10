@@ -36,6 +36,17 @@
   color-scheme: dark;
 }
 
+/* Entrada suave de bloco (telas de login). Desligada para quem pediu menos
+   movimento no sistema. Atraso escalonado: style={{ animationDelay: '80ms' }}. */
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.surgir { animation: surgir 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .surgir { animation: none; }
+}
+
 body {
   margin: 0;
   background: var(--color-fundo);

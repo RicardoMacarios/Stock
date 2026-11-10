@@ -15,6 +15,10 @@ const MENSAGENS = {
   'User already registered': 'Já existe uma conta com este e-mail. Entre com ela e use o código.',
   'Invalid login credentials': 'E-mail ou senha incorretos.',
   'Email not confirmed': 'Confirme o e-mail antes de entrar (veja sua caixa de entrada).',
+  'rate limit': 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
+  'For security purposes': 'Por segurança, aguarde alguns segundos antes de pedir de novo.',
+  'should be different': 'A senha nova precisa ser diferente da atual.',
+  'Failed to fetch': 'Sem conexão com o servidor. Confira sua internet.',
 }
 
 export function traduzirErro(erro) {

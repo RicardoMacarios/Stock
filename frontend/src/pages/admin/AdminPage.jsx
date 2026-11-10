@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Copy, LogOut } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
@@ -6,10 +7,10 @@ import { useAuth } from '@/context/useAuth'
 import { traduzirErro } from '@/lib/erros'
 import { generateSlug } from '@/utils/slug'
 import { classeCampo } from '@/lib/classes'
-import FormLogin from '@/components/auth/FormLogin'
 
 // /admin — você: gera códigos de convite e vê os clientes.
-// Quem pode é decidido no banco (plataforma_admins + eh_admin()).
+// Quem pode é decidido no banco (plataforma_admins + eh_admin()). Não tem
+// login próprio: entra-se por /login, que manda o admin para cá.
 export default function AdminPage() {
   const { session, loading, sair } = useAuth()
   const [ehAdmin, setEhAdmin] = useState(null)
@@ -23,18 +24,10 @@ export default function AdminPage() {
 
   if (!supabaseConfigurado) return <p className="p-8 text-texto-2">Banco não configurado (frontend/.env).</p>
   if (loading) return null
-  if (!session) return <FormLogin titulo="Admin" />
+  if (!session) return <Navigate to="/login" replace />
   if (ehAdmin === null) return null
-  if (!ehAdmin) {
-    return (
-      <div className="min-h-dvh grid place-items-center p-6 text-center">
-        <div>
-          <p className="text-texto-2">Esta conta não é de administrador.</p>
-          <button onClick={sair} className="mt-3 text-sm underline">Sair</button>
-        </div>
-      </div>
-    )
-  }
+  // Conta comum: o /login sabe levar para a empresa dela.
+  if (!ehAdmin) return <Navigate to="/login" replace />
   return <Painel sair={sair} />
 }
 

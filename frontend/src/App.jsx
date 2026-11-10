@@ -8,6 +8,8 @@ import { Pagina, Componente } from '@/clientes/Personalizavel'
 import { itensDeMenu } from '@/config/modulos'
 
 // Telas fora de cliente (sem slug na URL).
+const LoginGeralPage = lazy(() => import('@/pages/login/LoginGeralPage'))
+const RedefinirSenhaPage = lazy(() => import('@/pages/login/RedefinirSenhaPage'))
 const CadastroPage = lazy(() => import('@/pages/cadastro/CadastroPage'))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 
@@ -17,7 +19,9 @@ export default function App() {
   return (
     <Suspense fallback={null}>
       <Routes>
-        <Route path="/" element={<Aviso texto="Acesse pelo endereço da sua empresa: /seu-endereco" />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<LoginGeralPage />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
         <Route path="/cadastro" element={<CadastroPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/:slug/*" element={<RaizDoCliente />} />
