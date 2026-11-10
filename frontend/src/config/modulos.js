@@ -11,6 +11,7 @@
 const modulos = [
   { chave: 'dashboard', caminho: '', pagina: 'DashboardPage', rotulo: 'Dashboard', icone: 'LayoutDashboard' },
   { chave: 'vendas', caminho: 'vendas', pagina: 'VendasPage', rotulo: 'Vendas', icone: 'ShoppingCart' },
+  { chave: 'produtos', caminho: 'produtos', pagina: 'ProdutosPage', rotulo: 'Produtos', icone: 'Package' },
   // soDono: some do menu e da rota para quem não é dono (o banco também barra).
   { chave: 'configuracoes', caminho: 'configuracoes', pagina: 'ConfiguracoesPage', rotulo: 'Configurações', icone: 'Settings', soDono: true },
 ]
