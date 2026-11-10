@@ -12,7 +12,7 @@ const padrao = {
   // Cor, logo e nome que o dono define em Configurações ficam no BANCO e
   // ganham destes valores e dos do config.js do cliente.
   tema: {
-    corPrimaria: '#4FB3A9',
+    corPrimaria: '#3DDC55', // verde da marca Stock (docs/marca)
     corPrimariaInk: '#0F1112', // texto SOBRE a cor primária (escuro ou claro, o que contrastar)
     logo: null,                // caminho em /public ou URL
   },

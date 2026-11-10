@@ -31,7 +31,7 @@
 
 :root {
   /* Valores padrão. useTemaDoCliente() sobrescreve no <html>. */
-  --cor-primaria: #4FB3A9;
+  --cor-primaria: #3DDC55;
   --cor-primaria-ink: #0F1112;
   color-scheme: dark;
 }
