@@ -1,0 +1,227 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { Check, Undo2, UserRound } from 'lucide-react'
+import { supabase, supabaseConfigurado } from '@/lib/supabase'
+import { useCliente } from '@/context/useCliente'
+import { traduzirErro } from '@/lib/erros'
+import { dinheiro, horaCurta, quantidade as fmtQtd } from '@/lib/formato'
+import { useCarrinho } from '@/hooks/useCarrinho'
+import CampoDeBipe from '@/components/vendas/CampoDeBipe'
+import ListaDePecas from '@/components/vendas/ListaDePecas'
+import Passo from '@/components/vendas/Passo'
+import SeletorDeVendedor from '@/components/vendas/SeletorDeVendedor'
+import { agruparPedidos, corDoVendedor, totaisDasVendas, useVendasDeHoje, useVendedores } from './dados'
+
+// /:slug/vendas — o caixa. Escolhe o vendedor, bipa as peças (pistola ou
+// câmera) num carrinho e finaliza: o banco grava tudo de uma vez e baixa o
+// estoque (registrar_pedido: tudo ou nada). Ao lado, as vendas de hoje.
+// `children` deixa um cliente acrescentar algo sem copiar a tela.
+export default function VendasPage({ children }) {
+  const { cliente, slug, ehDono } = useCliente()
+  const clienteId = cliente?.id
+  const { vendedores } = useVendedores(clienteId)
+  const hoje = useVendasDeHoje(clienteId)
+  const [produtos, setProdutos] = useState(null)
+
+  const carregarProdutos = useCallback(async () => {
+    if (!clienteId) return
+    const { data } = await supabase.from('produtos')
+      .select('id, nome, codigo, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome')
+    setProdutos(data ?? [])
+  }, [clienteId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial vinda do banco
+    carregarProdutos()
+  }, [carregarProdutos])
+
+  if (!supabaseConfigurado) {
+    return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
+  }
+
+  const atualizar = () => { hoje.recarregar(); carregarProdutos() }
+  const totais = totaisDasVendas(hoje.vendas)
+  const data = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-texto-3 first-letter:uppercase">{data}</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">Vendas</h1>
+        </div>
+        <div className="flex gap-2 text-sm">
+          <Resumo rotulo="Vendido hoje" valor={dinheiro(totais.valor)} />
+          <Resumo rotulo="Peças" valor={fmtQtd(totais.pecas)} />
+        </div>
+      </header>
+
+      <div className="grid gap-4 lg:grid-cols-5 lg:items-start lg:gap-6">
+        <div className="lg:col-span-3">
+          <Caixa produtos={produtos} vendedores={vendedores.filter((v) => v.ativo)} todosVendedores={vendedores}
+            slug={slug} ehDono={ehDono} finalizou={atualizar} />
+        </div>
+        <div className="lg:col-span-2">
+          <VendasDeHoje {...hoje} vendedores={vendedores} desfez={atualizar} />
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Resumo({ rotulo, valor }) {
+  return (
+    <div className="rounded-xl border border-borda bg-card px-3.5 py-2">
+      <p className="text-xs text-texto-3">{rotulo}</p>
+      <p className="font-semibold tabular-nums">{valor}</p>
+    </div>
+  )
+}
+
+// ── Caixa ─────────────────────────────────────────────────────────────────
+
+function Caixa({ produtos, vendedores, todosVendedores, slug, ehDono, finalizou }) {
+  const [vendedorId, setVendedorId] = useState(null)
+  const [enviando, setEnviando] = useState(false)
+  const carrinho = useCarrinho()
+  const precisaVendedor = vendedores.length > 0
+
+  async function finalizar() {
+    if (precisaVendedor && !vendedorId) return toast.error('Escolha quem vendeu.')
+    if (carrinho.itens.length === 0) return toast.error('Bipe ou escolha pelo menos uma peça.')
+    if (carrinho.semPreco) return toast.error(`Informe o preço de ${carrinho.semPreco.produto.nome}.`)
+
+    setEnviando(true)
+    const { error } = await supabase.rpc('registrar_pedido', { p_itens: carrinho.paraEnviar(), p_vendedor_id: vendedorId })
+    setEnviando(false)
+    if (error) return toast.error(traduzirErro(error))
+    const vendedor = vendedores.find((v) => v.id === vendedorId)
+    toast.success(`Venda de ${dinheiro(carrinho.total)} registrada${vendedor ? ` · ${vendedor.nome}` : ''}`)
+    carrinho.limpar()
+    finalizou()
+    // O vendedor fica escolhido: o mesmo costuma atender várias seguidas.
+  }
+
+  return (
+    <section className="rounded-2xl border border-borda bg-card">
+      {/* 1. Vendedor */}
+      <div className="border-b border-borda p-4 md:p-5">
+        <Passo numero="1" titulo="Quem vendeu?" />
+        <div className="mt-3">
+          {precisaVendedor ? (
+            <SeletorDeVendedor vendedores={vendedores} todos={todosVendedores} valor={vendedorId} aoMudar={setVendedorId} />
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-texto-3">
+              <UserRound size={16} /> Nenhum vendedor cadastrado.{' '}
+              {ehDono
+                ? <Link to={`/${slug}/configuracoes`} className="text-acento hover:underline">Cadastrar em Configurações</Link>
+                : 'O dono cadastra em Configurações.'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Peças */}
+      <div className="space-y-4 p-4 md:p-5">
+        <Passo numero="2" titulo="Peças" extra={carrinho.itens.length > 0 && (
+          <button type="button" onClick={carrinho.limpar} className="text-xs text-texto-3 hover:text-texto">Limpar</button>
+        )} />
+        <CampoDeBipe produtos={produtos} aoEscolher={carrinho.adicionar} />
+        {produtos?.length === 0 && (
+          <p className="text-sm text-texto-3">
+            Nenhum produto cadastrado. <Link to={`/${slug}/produtos`} className="text-acento hover:underline">Cadastrar produtos</Link>
+          </p>
+        )}
+        <ListaDePecas carrinho={carrinho} vazio="Bipe as peças da compra" />
+      </div>
+
+      {/* Total + finalizar (gruda embaixo no celular, acima das abas) */}
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] rounded-b-2xl border-t border-borda bg-card/95 p-4 backdrop-blur md:p-5 lg:static lg:bg-card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs text-texto-3">{carrinho.pecas ? `${fmtQtd(carrinho.pecas)} peça${carrinho.pecas === 1 ? '' : 's'}` : 'Total'}</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums md:text-3xl">{dinheiro(carrinho.total)}</p>
+          </div>
+          <button type="button" onClick={finalizar} disabled={enviando || carrinho.itens.length === 0}
+            className="flex items-center gap-2 rounded-xl bg-acento px-5 py-3 font-semibold text-sobre-acento shadow-lg shadow-acento/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none md:px-6">
+            <Check size={18} /> {enviando ? 'Registrando…' : 'Finalizar venda'}
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Vendas de hoje ────────────────────────────────────────────────────────
+
+function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
+  const [confirmando, setConfirmando] = useState(null)
+  const pedidos = agruparPedidos(vendas)
+
+  async function desfazer(id) {
+    const { error } = await supabase.rpc('desfazer_pedido', { p_pedido_id: id })
+    setConfirmando(null)
+    if (error) return toast.error(traduzirErro(error))
+    toast.success('Venda desfeita; as peças voltaram ao estoque.')
+    desfez()
+  }
+
+  return (
+    <section className="rounded-2xl border border-borda bg-card p-4 md:p-5">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-semibold">Vendas de hoje</h2>
+        <span className="text-xs text-texto-3">{pedidos.length} venda{pedidos.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {carregando ? (
+        <p className="py-8 text-sm text-texto-3">Carregando…</p>
+      ) : pedidos.length === 0 ? (
+        <p className="py-8 text-center text-sm text-texto-3">Nenhuma venda hoje ainda.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {pedidos.map((p) => {
+            const cor = corDoVendedor(vendedores, p.vendedor_id)
+            return (
+              <li key={p.id} className="rounded-xl border border-borda bg-fundo/40 p-3">
+                <div className="flex items-start gap-3">
+                  <span aria-hidden className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-fundo" style={{ background: cor }}>
+                    {(p.vendedor_nome ?? '?').trim().charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="truncate text-sm font-medium">{p.vendedor_nome ?? 'Sem vendedor'}</p>
+                      <p className="shrink-0 text-sm font-semibold tabular-nums">{dinheiro(p.total)}</p>
+                    </div>
+                    <p className="text-xs text-texto-3">
+                      {horaCurta(p.vendido_em)} · {fmtQtd(p.pecas)} peça{Number(p.pecas) === 1 ? '' : 's'}
+                    </p>
+                    <ul className="mt-1.5 space-y-0.5 text-xs text-texto-2">
+                      {p.itens.map((i) => (
+                        <li key={i.id} className="truncate">{fmtQtd(i.quantidade)}× {i.produto_nome}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                {confirmando === p.id ? (
+                  <div className="mt-2 flex items-center justify-end gap-3 text-xs">
+                    <span className="text-texto-2">Desfazer e devolver ao estoque?</span>
+                    <button onClick={() => desfazer(p.id)} className="rounded-md bg-danger px-2 py-1 font-semibold text-fundo">Desfazer</button>
+                    <button onClick={() => setConfirmando(null)} className="text-texto-3 hover:text-texto">Não</button>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex justify-end">
+                    <button onClick={() => setConfirmando(p.id)} className="inline-flex items-center gap-1 text-xs text-texto-3 hover:text-texto">
+                      <Undo2 size={12} /> Desfazer
+                    </button>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
