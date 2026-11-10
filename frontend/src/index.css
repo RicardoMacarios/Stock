@@ -43,8 +43,12 @@
   to   { opacity: 1; transform: none; }
 }
 .surgir { animation: surgir 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* Gráfico: a linha se desenha da esquerda para a direita (pathLength="1"). */
+@keyframes desenhar { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.grafico-linha { stroke-dasharray: 1; animation: desenhar 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .surgir { animation: none; }
+  .surgir, .grafico-linha { animation: none; }
 }
 
 body {
