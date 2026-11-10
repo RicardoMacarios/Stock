@@ -5,6 +5,14 @@ Um código e um banco para todos os clientes. Cada cliente tem um **slug**
 `frontend/src/clientes/<slug>/`. O que estiver nessa pasta vale só para ele;
 o resto vem da base.
 
+## A regra: banco × código
+
+| O quê | Onde | Quem muda |
+| --- | --- | --- |
+| **Cor, logo e nome** | Banco | O próprio cliente, em Configurações (na hora, sem deploy) |
+| **Todo o resto** só daquele cliente (botão, aba nova, tela, textos, regras) | `src/clientes/<slug>/` | Você, em código |
+| O que vale para **todos** | Base: `src/pages`, `src/components`, `src/config` | Você, em código |
+
 ## Cliente novo (convite)
 
 1. Em `/admin`, clique **Gerar código**. Sai um código único (`K7Q2-M9XA`) que
@@ -32,7 +40,7 @@ Sem convite (você mesmo cria): `npm run novo-cliente -- "Mercado do Zé"` e o
 
 | Quero… | Onde | Exemplo |
 | --- | --- | --- |
-| Cor, logo | `config.js` → `tema` | `tema: { corPrimaria: '#E0A43B' }` |
+| Nome, cor, logo | **o próprio cliente**, em Configurações (`/<slug>/configuracoes`) | fica no banco e vale na hora, sem deploy |
 | Trocar um texto | `config.js` → `textos` | `textos: { nomeProdutoPlural: 'Itens' }` |
 | Desligar um módulo | `config.js` → `modulos` | `modulos: { produtos: false }` (some do menu e da rota) |
 | Mudar uma regra | `config.js` → `regras` | `regras: { estoqueMinimoPadrao: 20 }` |
@@ -67,7 +75,7 @@ fundem chave a chave; arrays e valores simples são substituídos inteiros.
   configs, páginas, componentes e estilos de cada pasta. `_modelo` é ignorada.
 - `App.jsx` → `/:slug/*` → `ClienteProvider` resolve o slug no banco
   (`cliente_por_slug`) e monta a config: `padrao` < `config.js` do cliente <
-  nome do banco.
+  banco (nome, cor e logo que o dono salvou em Configurações).
 - As telas são renderizadas por `<Pagina nome="X" />` e
   `<Componente nome="X" />`, que escolhem a versão do cliente ou a da base.
   Cada página vira um chunk separado: o código de um cliente não pesa para os

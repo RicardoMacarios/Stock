@@ -17,13 +17,15 @@ Sem banco, dá para ver a base em modo de teste: `cd frontend && npm run dev` �
 Duas opções:
 
 - **Pedir ao Claude** para criar pelo conector do Supabase (região `sa-east-1`,
-  ele mostra o custo antes e aplica as migrations), **ou**
+  ele mostra o custo antes e aplica as migrations, que também criam o bucket
+  `logos`), **ou**
 - **Fazer pelo site:**
   1. supabase.com → **New project** → nome `stock`, região South America (São
      Paulo). Anote a senha do banco.
   2. **SQL Editor** → rode, nesta ordem:
      - `supabase/migrations/20261109233000_clientes_por_slug.sql`
      - `supabase/migrations/20261110000000_convites.sql`
+     - `supabase/migrations/20261110120000_aparencia_do_cliente.sql`
   3. **Authentication → Users → Add user** → crie seu usuário, copie o ID e rode:
      ```sql
      insert into public.plataforma_admins (user_id) values ('<seu id>');
@@ -48,6 +50,8 @@ SUPABASE_SERVICE_ROLE_KEY=<chave service_role>   # só no seu computador, NUNCA 
 4. `npm run sincronizar-clientes` → conferir que a pasta
    `src/clientes/<slug>/` apareceu.
 5. Abrir a URL de um cliente com outra conta → deve dizer "sem acesso".
+6. Como dono, em **Configurações**, trocar nome, cor e logo → deve mudar na hora,
+   inclusive na tela de login daquele cliente.
 
 Decidir: **Confirm email** ligado ou desligado no Supabase (Authentication →
 Providers → Email). Ligado, o cliente confirma o e-mail e volta com o mesmo

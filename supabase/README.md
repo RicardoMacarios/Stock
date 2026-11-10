@@ -29,6 +29,9 @@ select version, name from supabase_migrations.schema_migrations order by version
 - `convites` — códigos únicos que expiram; `criar_cliente_com_convite` cria
   cliente + dono e queima o código numa transação só.
 - `plataforma_admins` — quem entra em `/admin` (só pelo SQL Editor).
+- Aparência (`clientes.nome`, `cor_primaria`, `logo_url`): o dono altera por
+  `atualizar_aparencia` (só esses campos; `slug` e `ativo` ficam fora). Logos no
+  bucket público `logos`, em `<cliente_id>/...`, até 1 MB, PNG/JPG/WEBP.
 - Toda tabela de negócio tem `cliente_id` + policy com `public.eh_membro(cliente_id)`
   (copie o molde de `produtos`).
 - A personalização de cada cliente **não** fica no banco: fica em
