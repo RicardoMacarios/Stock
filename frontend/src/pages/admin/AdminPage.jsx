@@ -8,6 +8,7 @@ import { classeCampo } from '@/lib/classes'
 import { textoSobre } from '@/utils/cor'
 import { Logotipo } from '@/components/ui/Marca'
 import PainelConvites from './PainelConvites'
+import PainelUso from './PainelUso'
 import { useConvites } from './useConvites'
 
 // /admin — você: gera convites e acompanha os clientes.
@@ -84,6 +85,10 @@ function Painel({ email, sair }) {
           <div className="lg:col-span-7">
             <PainelClientes clientes={clientes} />
           </div>
+        </div>
+
+        <div className="mt-4 lg:mt-6">
+          <PainelUso />
         </div>
       </main>
     </div>
