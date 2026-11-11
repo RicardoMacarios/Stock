@@ -9,8 +9,9 @@ import { dinheiro, inicioDeHoje, quantidade as fmtQtd } from '@/lib/formato'
 import { totaisDasVendas, useVendedores } from '@/pages/vendas/dados'
 import GraficoDoMes from './GraficoDoMes'
 import DiasDaSemana from './DiasDaSemana'
+import FormasDePagamento from './FormasDePagamento'
 import {
-  diasDecorridos, inicioDoMes, maisVendidos, mediaPorDiaDaSemana, mesmoPeriodo, rankingDeVendedores, somarMeses, useAReceber, useVendasDoMes, variacao, vendasPorDia,
+  diasDecorridos, inicioDoMes, maisVendidos, mediaPorDiaDaSemana, mesmoPeriodo, porFormaDePagamento, rankingDeVendedores, somarMeses, useAReceber, useVendasDoMes, variacao, vendasPorDia,
 } from './dados'
 
 // Financeiro (/:slug/financeiro): o mês inteiro de uma vez — quanto vendeu,
@@ -123,6 +124,8 @@ function Conteudo({ vendas, anterior, vendedores, mes, ehAtual, aReceber }) {
         <Numero rotulo="Peças por venda" valor={(t.vendas ? t.pecas / t.vendas : 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
           icone={Shirt} delta={variacao(t.vendas ? t.pecas / t.vendas : 0, a.vendas ? a.pecas / a.vendas : 0)} />
       </div>
+
+      <FormasDePagamento formas={porFormaDePagamento(vendas)} />
 
       <GraficoDoMes dias={dias} diasAnterior={diasAnterior} vendas={vendas} vendedores={vendedores}
         mes={mes} hoje={hoje} />

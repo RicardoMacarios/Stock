@@ -5,7 +5,7 @@ import { COR_SEM_VENDEDOR, corDoVendedor, receitaDe, totaisDasVendas } from '@/p
 // Dados e contas da tela Financeiro (um mês por vez).
 // .js de propósito: o registro de clientes só indexa .jsx como página.
 
-const COLUNAS = 'id, pedido_id, produto_nome, vendedor_id, vendedor_nome, quantidade, preco_unitario, custo_unitario, vendido_em'
+const COLUNAS = 'id, pedido_id, produto_nome, vendedor_id, vendedor_nome, quantidade, preco_unitario, custo_unitario, vendido_em, forma_pagamento'
 const POR_PAGINA = 1000 // limite padrão de linhas por consulta do Supabase
 
 // Meia-noite do dia 1º do mês de `data`, no horário do navegador.
@@ -41,16 +41,18 @@ async function lerVendas(clienteId, de, ate) {
 // O Financeiro conta o que ENTROU NO CAIXA. Venda de R$ 90 com R$ 50 em
 // aberto: no dia da venda entra uma linha de ajuste de −50; no dia em que o
 // cliente paga, +50. O lucro segue a mesma proporção (lucro_aberto).
-// Linhas de ajuste: { ajuste: true, valor, lucro, quantidade: 0, vendido_em, vendedor }.
+// Linhas de ajuste: { ajuste: true, valor, lucro, quantidade: 0, vendido_em, vendedor, forma_pagamento }.
+// O ajuste de −50 sai da forma da própria venda (preenchida em lerMovimento);
+// o recebimento entra na forma em que o cliente pagou.
 
 async function lerAjustes(clienteId, de, ate) {
   const desde = new Date(de).toISOString()
   const antes = new Date(ate).toISOString()
   const [contas, recebidos] = await Promise.all([
-    supabase.from('contas_receber').select('id, valor_aberto, lucro_aberto, vendedor_id, vendedor_nome, criado_em')
+    supabase.from('contas_receber').select('id, pedido_id, valor_aberto, lucro_aberto, vendedor_id, vendedor_nome, criado_em')
       .eq('cliente_id', clienteId).gte('criado_em', desde).lt('criado_em', antes),
     supabase.from('recebimentos')
-      .select('id, valor, recebido_em, conta:contas_receber(valor_aberto, lucro_aberto, vendedor_id, vendedor_nome)')
+      .select('id, valor, forma_pagamento, recebido_em, conta:contas_receber(valor_aberto, lucro_aberto, vendedor_id, vendedor_nome)')
       .eq('cliente_id', clienteId).gte('recebido_em', desde).lt('recebido_em', antes),
   ])
   if (contas.error) throw contas.error
@@ -59,11 +61,12 @@ async function lerAjustes(clienteId, de, ate) {
   return [
     ...contas.data.map((c) => ({
       id: `aberto-${c.id}`, ajuste: true, quantidade: 0, valor: -Number(c.valor_aberto), lucro: -Number(c.lucro_aberto ?? 0),
-      vendido_em: c.criado_em, vendedor_id: c.vendedor_id, vendedor_nome: c.vendedor_nome,
+      vendido_em: c.criado_em, vendedor_id: c.vendedor_id, vendedor_nome: c.vendedor_nome, pedido_id: c.pedido_id,
     })),
     ...recebidos.data.map((r) => ({
       id: `recebido-${r.id}`, ajuste: true, quantidade: 0, valor: Number(r.valor), lucro: Number(r.valor) * proporcao(r.conta),
       vendido_em: r.recebido_em, vendedor_id: r.conta?.vendedor_id ?? null, vendedor_nome: r.conta?.vendedor_nome ?? null,
+      forma_pagamento: r.forma_pagamento,
     })),
   ]
 }
@@ -71,6 +74,10 @@ async function lerAjustes(clienteId, de, ate) {
 // Vendas + ajustes de [de, ate), em ordem de horário.
 async function lerMovimento(clienteId, de, ate) {
   const [vendas, ajustes] = await Promise.all([lerVendas(clienteId, de, ate), lerAjustes(clienteId, de, ate)])
+  const formaDoPedido = new Map(vendas.map((v) => [v.pedido_id, v.forma_pagamento]))
+  for (const a of ajustes) {
+    if (a.pedido_id) a.forma_pagamento = formaDoPedido.get(a.pedido_id) ?? null
+  }
   return [...vendas, ...ajustes].sort((a, b) => new Date(a.vendido_em) - new Date(b.vendido_em))
 }
 
@@ -218,6 +225,23 @@ export function maisVendidos(vendas, limite = 5) {
   return [...porNome.values()].sort((a, b) => b.pecas - a.pecas || b.valor - a.valor).slice(0, limite)
 }
 
+// Quanto entrou e quanto lucrou em cada forma de pagamento. Mesma regra do
+// "Entrou no caixa": a soma das formas dá o total do mês. `sem` = vendas sem
+// forma registrada (anteriores ao campo existir).
+export function porFormaDePagamento(vendas) {
+  const formas = {}
+  for (const v of vendas) {
+    const f = (formas[v.forma_pagamento ?? 'sem'] ??= { valor: 0, lucro: 0, pedidos: new Set() })
+    if (v.ajuste) { f.valor += v.valor; f.lucro += v.lucro; continue }
+    const qtd = Number(v.quantidade)
+    const receita = qtd * Number(v.preco_unitario)
+    f.valor += receita
+    if (v.custo_unitario != null) f.lucro += receita - qtd * Number(v.custo_unitario)
+    f.pedidos.add(v.pedido_id ?? v.id)
+  }
+  return Object.fromEntries(Object.entries(formas).map(([k, { pedidos, ...f }]) => [k, { ...f, vendas: pedidos.size }]))
+}
+
 // Variação em % (null quando não há base para comparar).
 export const variacao = (atual, antes) => (antes > 0 ? ((atual - antes) / antes) * 100 : null)
 
@@ -232,6 +256,7 @@ export function mesmoPeriodo(anterior, mes, agora = Date.now()) {
 
 // ── Exemplo (modo sem banco, frontend/.env vazio) ─────────────────────────
 
+const FORMAS = ['pix', 'pix', 'pix', 'credito', 'credito', 'debito', 'dinheiro']
 const VENDEDORES = [['v1', 'Juninho'], ['v2', 'Gabriel'], ['v3', 'Giovani']]
 const PECAS = [
   ['Camiseta básica M', 59.9, 25], ['Calça jeans skinny 40', 189.9, 85], ['Moletom canguru G', 149.9, 62],
@@ -254,6 +279,7 @@ function vendasDeExemplo(mes) {
       const quando = somarDias(mes, dia - 1) + (9 + sortear() * 9) * 3_600_000
       if (quando > agora) continue
       lista.push({
+        forma_pagamento: FORMAS[Math.floor(sortear() * FORMAS.length)],
         id: `ex-${mes}-${dia}-${i}`, pedido_id: `ex-${mes}-${dia}-${i}`, produto_nome: nome,
         vendedor_id: vid, vendedor_nome: vnome, quantidade: sortear() > 0.8 ? 2 : 1,
         preco_unitario: preco, custo_unitario: custo, vendido_em: new Date(quando).toISOString(),
