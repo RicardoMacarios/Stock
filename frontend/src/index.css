@@ -61,3 +61,16 @@ body {
   color: var(--color-texto);
   font-family: var(--font-sans);
 }
+
+/* Etiquetas da peça (components/produtos/Etiquetas.jsx): na tela ficam
+   escondidas; ao imprimir, só elas saem, uma por página do tamanho da
+   etiqueta (o @page vem junto, no próprio componente). */
+.area-etiquetas { display: none; }
+@media print {
+  body.imprimindo-etiquetas { background: #fff !important; }
+  body.imprimindo-etiquetas > *:not(.area-etiquetas) { display: none !important; }
+  body.imprimindo-etiquetas .area-etiquetas { display: block !important; }
+  .area-etiquetas .etiqueta { break-after: page; page-break-after: always; }
+  .area-etiquetas .etiqueta:last-child { break-after: auto; page-break-after: auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Banknote, Boxes, Camera, CircleCheck, Package, PackagePlus, PackageX, Pencil, Plus, ScanBarcode, Trash2,
+  Banknote, Boxes, Camera, CircleCheck, Package, PackagePlus, PackageX, Pencil, Plus, QrCode, ScanBarcode, Trash2,
   TriangleAlert, X,
 } from 'lucide-react'
 import { useLeitorDeCodigo } from '@/hooks/useLeitorDeCodigo'
@@ -15,6 +15,8 @@ import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 import { useProdutos } from '@/hooks/useProdutos'
 import MaisAoRolar from '@/components/ui/MaisAoRolar'
 import { categoriasDe, nomeCategoria, normalizarCategoria } from '@/lib/categorias'
+import { gerarCodigoDaPeca } from '@/lib/qrcode'
+import Etiquetas from '@/components/produtos/Etiquetas'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -57,6 +59,7 @@ export default function ProdutosPage({ children }) {
   const [camera, setCamera] = useState(false)
   // null | { produto: null (novo) ou o produto, codigo: código bipado para o novo }
   const [editando, setEditando] = useState(null)
+  const [etiqueta, setEtiqueta] = useState(null) // produto cuja etiqueta está aberta
 
   // Bipou: peça cadastrada → mostra; nova → abre o cadastro com o código
   // preenchido (cadastrar a coleção é bipar e completar).
@@ -205,8 +208,13 @@ export default function ProdutosPage({ children }) {
       {editando && (
         <PainelProduto key={editando.produto?.id ?? `novo:${editando.codigo ?? ''}`} produto={editando.produto}
           codigoInicial={editando.codigo} clienteId={clienteId} categorias={categorias}
-          fechar={() => setEditando(null)} salvo={() => { setEditando(null); carregar() }} />
+          fechar={() => setEditando(null)}
+          salvo={(salvoAgora, novo) => { setEditando(null); carregar(); if (novo && salvoAgora) setEtiqueta(salvoAgora) }}
+          abrirEtiqueta={(p) => { setEditando(null); setEtiqueta(p) }} />
       )}
+
+      {/* Peça nova já abre a etiqueta (QR Code + nome + valor) para imprimir */}
+      {etiqueta && <Etiquetas produto={etiqueta} fechar={() => setEtiqueta(null)} mudou={carregar} />}
 
       {camera && (
         <Suspense fallback={null}>
@@ -334,7 +342,7 @@ const iniciais = (nome) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p.cha
 // ── Painel de cadastro/edição ─────────────────────────────────────────────
 // Lateral no computador; folha que sobe no celular.
 
-function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fechar, salvo }) {
+function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fechar, salvo, abrirEtiqueta }) {
   const [campos, setCampos] = useState(() => (produto
     ? {
         nome: produto.nome,
@@ -398,14 +406,25 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
     if (Object.values(valores).some((v) => Number.isNaN(v))) return toast.error('Confira os números (use vírgula para centavos).')
     if (valores.quantidade < 0) return toast.error('A quantidade não pode ser negativa.')
 
+    // Peça nova sem código do fornecedor: gera um, que vai no QR da etiqueta.
+    const gerado = !produto && !valores.codigo
+    if (gerado) valores.codigo = gerarCodigoDaPeca()
+
     setSalvando(true)
-    const { error } = produto
-      ? await supabase.from('produtos').update(valores).eq('id', produto.id)
-      : await supabase.from('produtos').insert({ ...valores, cliente_id: clienteId })
+    const gravar = () => (produto
+      ? supabase.from('produtos').update(valores).eq('id', produto.id)
+      : supabase.from('produtos').insert({ ...valores, cliente_id: clienteId })
+    ).select('id, nome, codigo, codigo_legado, quantidade, preco_venda').single()
+    let { data, error } = await gravar()
+    // Código gerado bateu com outro (raríssimo): tenta outro.
+    if (error && gerado && String(error.message).includes('produtos_codigo_unico')) {
+      valores.codigo = gerarCodigoDaPeca()
+      ;({ data, error } = await gravar())
+    }
     setSalvando(false)
     if (error) return toast.error(traduzirErro(error))
-    toast.success(produto ? 'Produto atualizado.' : 'Produto cadastrado.')
-    salvo()
+    toast.success(produto ? 'Produto atualizado.' : 'Produto cadastrado. Imprima a etiqueta.')
+    salvo(data, !produto)
   }
 
   async function apagar() {
@@ -459,7 +478,7 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
 
           <div>
             <label htmlFor="codigo" className="block text-sm font-medium text-texto-2">
-              Código <span className="font-normal text-texto-3">(bipe a etiqueta)</span>
+              Código <span className="font-normal text-texto-3">(bipe a etiqueta; sem código, o sistema gera um)</span>
             </label>
             <div className="mt-1.5 flex gap-2">
               {/* Enter do leitor não envia o formulário: só preenche o código. */}
@@ -526,9 +545,15 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => setApagando(true)} className="flex items-center gap-1.5 text-sm text-texto-3 hover:text-danger">
-                <Trash2 size={14} /> Apagar produto
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button type="button" onClick={() => abrirEtiqueta?.(produto)}
+                  className="flex items-center gap-2 rounded-xl border border-borda-forte px-3.5 py-2 text-sm font-medium text-texto-2 transition hover:border-acento hover:text-acento">
+                  <QrCode size={16} /> Imprimir etiqueta
+                </button>
+                <button type="button" onClick={() => setApagando(true)} className="flex items-center gap-1.5 text-sm text-texto-3 hover:text-danger">
+                  <Trash2 size={14} /> Apagar produto
+                </button>
+              </div>
             )
           )}
         </div>
