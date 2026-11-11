@@ -8,6 +8,7 @@ import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { dinheiro, horaCurta, quantidade as fmtQtd } from '@/lib/formato'
 import { useCarrinho } from '@/hooks/useCarrinho'
+import { aplicarDesconto, lerPercentual, totalComDesconto } from '@/lib/desconto'
 import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
 import Passo from '@/components/vendas/Passo'
@@ -91,21 +92,31 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
   const carrinho = useCarrinho()
   const precisaVendedor = vendedores.length > 0
   const [pessoa, setPessoa] = useState(null) // cliente da compra (opcional)
+  const [desconto, setDesconto] = useState('') // % sobre a compra inteira
+  const pct = lerPercentual(desconto)
+  const descontoInvalido = desconto.trim() !== '' && pct === null
+  const total = totalComDesconto(carrinho.total, pct)
+
+  function limpar() {
+    carrinho.limpar()
+    setDesconto('')
+  }
 
   async function finalizar() {
     if (precisaVendedor && !vendedorId) return toast.error('Escolha quem vendeu.')
     if (carrinho.itens.length === 0) return toast.error('Bipe ou escolha pelo menos uma peça.')
     if (carrinho.semPreco) return toast.error(`Informe o preço de ${carrinho.semPreco.produto.nome}.`)
+    if (descontoInvalido) return toast.error('O desconto deve ficar entre 0 e 100%.')
 
     setEnviando(true)
     const { error } = await supabase.rpc('registrar_pedido', {
-      p_itens: carrinho.paraEnviar(), p_vendedor_id: vendedorId, p_cliente_loja_id: pessoa?.id ?? null,
+      p_itens: aplicarDesconto(carrinho.paraEnviar(), pct), p_vendedor_id: vendedorId, p_cliente_loja_id: pessoa?.id ?? null,
     })
     setEnviando(false)
     if (error) return toast.error(traduzirErro(error))
     const vendedor = vendedores.find((v) => v.id === vendedorId)
-    toast.success(`Venda de ${dinheiro(carrinho.total)} registrada${vendedor ? ` · ${vendedor.nome}` : ''}`)
-    carrinho.limpar()
+    toast.success(`Venda de ${dinheiro(total)} registrada${pct ? ` (${desconto.trim()}% de desconto)` : ''}${vendedor ? ` · ${vendedor.nome}` : ''}`)
+    limpar()
     setPessoa(null) // a próxima compra é de outra pessoa
     finalizou()
     // O vendedor fica escolhido: o mesmo costuma atender várias seguidas.
@@ -136,7 +147,7 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
       {/* 2. Peças */}
       <div className="space-y-4 p-4 md:p-5">
         <Passo numero="2" titulo="Peças" extra={carrinho.itens.length > 0 && (
-          <button type="button" onClick={carrinho.limpar} className="text-xs text-texto-3 hover:text-texto">Limpar</button>
+          <button type="button" onClick={limpar} className="text-xs text-texto-3 hover:text-texto">Limpar</button>
         )} />
         <CampoDeBipe produtos={produtos} aoEscolher={carrinho.adicionar} />
         {produtos?.length === 0 && (
@@ -149,10 +160,31 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
 
       {/* Total + finalizar (gruda embaixo no celular, acima das abas) */}
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] rounded-b-2xl border-t border-borda bg-card/95 p-4 backdrop-blur md:p-5 lg:static lg:bg-card">
+        {carrinho.itens.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <span className="text-texto-2">Desconto</span>
+              <span className={`flex h-8 items-center rounded-lg border bg-fundo px-2 focus-within:border-acento ${descontoInvalido ? 'border-danger' : 'border-borda-forte'}`}>
+                <input inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value)} placeholder="0"
+                  aria-label="Desconto em porcentagem" className="w-10 bg-transparent text-right tabular-nums outline-none" />
+                <span className="pl-1 text-xs text-texto-3">%</span>
+              </span>
+            </label>
+            {pct > 0 && (
+              <p className="text-xs text-texto-3 tabular-nums">
+                {dinheiro(carrinho.total)} <span className="text-danger">− {dinheiro(carrinho.total - total)}</span>
+              </p>
+            )}
+            {descontoInvalido && <p className="text-xs text-danger">Use de 0 a 100%</p>}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs text-texto-3">{carrinho.pecas ? `${fmtQtd(carrinho.pecas)} peça${carrinho.pecas === 1 ? '' : 's'}` : 'Total'}</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums md:text-3xl">{dinheiro(carrinho.total)}</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums md:text-3xl">
+              {pct > 0 && <span className="mr-2 align-middle text-base font-normal text-texto-3 line-through">{dinheiro(carrinho.total)}</span>}
+              {dinheiro(total)}
+            </p>
           </div>
           <button type="button" onClick={finalizar} disabled={enviando || carrinho.itens.length === 0}
             className="flex items-center gap-2 rounded-xl bg-acento px-5 py-3 font-semibold text-sobre-acento shadow-lg shadow-acento/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none md:px-6">
