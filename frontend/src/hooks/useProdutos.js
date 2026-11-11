@@ -36,7 +36,8 @@ function estadoDa(clienteId) {
 const avisar = (e) => e.ouvintes.forEach((f) => f())
 const maior = (a, b) => (!a ? b : !b ? a : (a > b ? a : b))
 const voltar = (iso) => new Date(new Date(iso).getTime() - FOLGA_MS).toISOString()
-const ordenar = (lista) => lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+const porNome = new Intl.Collator('pt-BR').compare
+const ordenar = (lista) => lista.sort((a, b) => porNome(a.nome, b.nome))
 
 async function carregarTudo(clienteId) {
   const [p, r] = await Promise.all([

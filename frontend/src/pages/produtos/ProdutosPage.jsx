@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Banknote, Boxes, Camera, CircleCheck, Package, PackagePlus, PackageX, Pencil, Plus, ScanBarcode, Trash2,
@@ -13,6 +13,7 @@ import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/form
 import { situacao } from '@/pages/dashboard/resumo'
 import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 import { useProdutos } from '@/hooks/useProdutos'
+import MaisAoRolar from '@/components/ui/MaisAoRolar'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -30,8 +31,14 @@ const SITUACAO = {
   zerado: { rotulo: 'Zerado', icone: PackageX, selo: 'bg-danger/12 text-danger' },
 }
 
+// Collator: bem mais rápido que localeCompare em listas de milhares.
+const porNome = new Intl.Collator('pt-BR').compare
+
+// Lista longa: desenha de tantos em tantos, conforme rola.
+const POR_VEZ = 60
+
 const ORDENS = {
-  nome: { rotulo: 'Nome', comparar: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR') },
+  nome: { rotulo: 'Nome', comparar: (a, b) => porNome(a.nome, b.nome) },
   estoque: { rotulo: 'Menor estoque', comparar: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
   recentes: { rotulo: 'Mais recentes', comparar: (a, b) => new Date(b.criado_em) - new Date(a.criado_em) },
 }
@@ -77,6 +84,12 @@ export default function ProdutosPage({ children }) {
       .sort(ORDENS[ordem].comparar)
     return buscarProdutos(ordenados, busca)
   }, [produtos, busca, filtro, ordem])
+
+  // Quantos desenhar. Mudou busca, filtro ou ordem: volta ao começo.
+  const chaveLista = `${busca}|${filtro}|${ordem}`
+  const [pagina, setPagina] = useState({ chave: chaveLista, n: POR_VEZ })
+  const mostrar = pagina.chave === chaveLista ? pagina.n : POR_VEZ
+  const mais = useCallback(() => setPagina((p) => ({ chave: chaveLista, n: (p.chave === chaveLista ? p.n : POR_VEZ) + POR_VEZ })), [chaveLista])
 
   if (!supabaseConfigurado) {
     return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
@@ -161,10 +174,13 @@ export default function ProdutosPage({ children }) {
           <p className="p-8 text-center text-sm text-texto-3">Nada encontrado com esse filtro.</p>
         ) : (
           <ul className="divide-y divide-borda">
-            {lista.map((p) => (
+            {lista.slice(0, mostrar).map((p) => (
               <LinhaProduto key={p.id} produto={p} editar={() => setEditando({ produto: p })} mudou={carregar} />
             ))}
           </ul>
+        )}
+        {lista.length > 0 && (
+          <MaisAoRolar mostrando={Math.min(mostrar, lista.length)} total={lista.length} mais={mais} />
         )}
       </section>
 
