@@ -13,6 +13,8 @@ import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
 import Passo from '@/components/vendas/Passo'
 import SeletorDeVendedor from '@/components/vendas/SeletorDeVendedor'
+import SeletorDePagamento from '@/components/vendas/SeletorDePagamento'
+import { rotuloPagamento } from '@/lib/pagamento'
 import { BuscaCliente, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
 import { CLIENTE_VAZIO, salvarCliente, useClientesDaLoja } from '@/pages/clientes/dados'
 import { agruparPedidos, corDoVendedor, totaisDasVendas, useVendasDeHoje, useVendedores } from './dados'
@@ -93,6 +95,7 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
   const precisaVendedor = vendedores.length > 0
   const [pessoa, setPessoa] = useState(null) // cliente da compra (opcional)
   const [desconto, setDesconto] = useState('') // % sobre a compra inteira
+  const [pagamento, setPagamento] = useState(null) // pix | credito | debito | dinheiro
   const pct = lerPercentual(desconto)
   const descontoInvalido = desconto.trim() !== '' && pct === null
   const total = totalComDesconto(carrinho.total, pct)
@@ -107,17 +110,20 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
     if (carrinho.itens.length === 0) return toast.error('Bipe ou escolha pelo menos uma peça.')
     if (carrinho.semPreco) return toast.error(`Informe o preço de ${carrinho.semPreco.produto.nome}.`)
     if (descontoInvalido) return toast.error('O desconto deve ficar entre 0 e 100%.')
+    if (!pagamento) return toast.error('Escolha a forma de pagamento.')
 
     setEnviando(true)
     const { error } = await supabase.rpc('registrar_pedido', {
       p_itens: aplicarDesconto(carrinho.paraEnviar(), pct), p_vendedor_id: vendedorId, p_cliente_loja_id: pessoa?.id ?? null,
+      p_forma_pagamento: pagamento,
     })
     setEnviando(false)
     if (error) return toast.error(traduzirErro(error))
     const vendedor = vendedores.find((v) => v.id === vendedorId)
-    toast.success(`Venda de ${dinheiro(total)} registrada${pct ? ` (${desconto.trim()}% de desconto)` : ''}${vendedor ? ` · ${vendedor.nome}` : ''}`)
+    toast.success(`Venda de ${dinheiro(total)} registrada${pct ? ` (${desconto.trim()}% de desconto)` : ''} · ${rotuloPagamento(pagamento)}${vendedor ? ` · ${vendedor.nome}` : ''}`)
     limpar()
     setPessoa(null) // a próxima compra é de outra pessoa
+    setPagamento(null) // e cada uma paga de um jeito
     finalizou()
     // O vendedor fica escolhido: o mesmo costuma atender várias seguidas.
   }
@@ -156,6 +162,14 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
           </p>
         )}
         <ListaDePecas carrinho={carrinho} vazio="Bipe as peças da compra" />
+      </div>
+
+      {/* 3. Pagamento */}
+      <div className="border-t border-borda p-4 md:p-5">
+        <Passo numero="3" titulo="Pagamento" />
+        <div className="mt-3">
+          <SeletorDePagamento valor={pagamento} aoMudar={setPagamento} />
+        </div>
       </div>
 
       {/* Total + finalizar (gruda embaixo no celular, acima das abas) */}
@@ -295,6 +309,7 @@ function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
                     </div>
                     <p className="text-xs text-texto-3">
                       {horaCurta(p.vendido_em)} · {fmtQtd(p.pecas)} peça{Number(p.pecas) === 1 ? '' : 's'}
+                      {p.forma_pagamento && ` · ${rotuloPagamento(p.forma_pagamento)}`}
                     </p>
                     <ul className="mt-1.5 space-y-0.5 text-xs text-texto-2">
                       {p.itens.map((i) => (

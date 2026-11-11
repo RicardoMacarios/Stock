@@ -21,6 +21,7 @@ const MENSAGENS = {
   vendedor_invalido: 'Vendedor não encontrado ou desativado.',
   venda_nao_encontrada: 'Venda não encontrada. Atualize a página.',
   carrinho_vazio: 'Bipe ou escolha pelo menos uma peça.',
+  forma_pagamento_invalida: 'Forma de pagamento inválida. Escolha de novo.',
   cliente_loja_nao_encontrado: 'Cliente não encontrado. Escolha ou cadastre de novo.',
   condicional_nao_encontrado: 'Condicional não encontrado. Atualize a página.',
   condicional_ja_fechado: 'Este condicional já foi acertado.',

@@ -18,7 +18,7 @@ export function useVendasDoDia(clienteId, dia, { atualizarACada } = {}) {
     if (!supabaseConfigurado || !clienteId) return
     let cancelado = false
     supabase.from('vendas')
-      .select('id, pedido_id, produto_id, produto_nome, vendedor_id, vendedor_nome, quantidade, preco_unitario, custo_unitario, vendido_em')
+      .select('id, pedido_id, produto_id, produto_nome, vendedor_id, vendedor_nome, quantidade, preco_unitario, custo_unitario, vendido_em, forma_pagamento')
       .eq('cliente_id', clienteId)
       .gte('vendido_em', new Date(dia).toISOString())
       .lt('vendido_em', new Date(proximoDia(dia)).toISOString())
@@ -137,7 +137,7 @@ export function agruparPedidos(vendas) {
     const chave = v.pedido_id ?? v.id
     const p = porPedido.get(chave) ?? {
       id: chave, vendido_em: v.vendido_em, vendedor_id: v.vendedor_id, vendedor_nome: v.vendedor_nome,
-      itens: [], total: 0, pecas: 0,
+      forma_pagamento: v.forma_pagamento ?? null, itens: [], total: 0, pecas: 0,
     }
     p.itens.push(v)
     p.total += Number(v.quantidade) * Number(v.preco_unitario)
