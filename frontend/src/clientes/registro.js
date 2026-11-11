@@ -95,26 +95,44 @@ export function carregarEstiloDoCliente(slug) {
 // React.lazy precisa ser criado uma vez por (tipo, slug, nome); recriar a cada
 // render remontaria a página e perderia o estado.
 const cacheLazy = new Map()
+// Módulos já baixados (pré-carga). Página já baixada é usada direto, sem
+// lazy: abre sem passar pelo "Carregando…".
+const modulos = new Map()
+
+function carregadorDe(tipo, nome, slug) {
+  const carregar = indice[tipo].cliente[slug]?.[nome] ?? indice[tipo].base[nome]
+  if (!carregar) {
+    throw new Error(`${tipo} "${nome}" não existe na base nem em src/clientes/${slug}/.`)
+  }
+  return carregar
+}
 
 function resolver(tipo, nome, slug) {
   const chave = `${tipo}:${slug}:${nome}`
   if (cacheLazy.has(chave)) return cacheLazy.get(chave)
 
-  const doCliente = indice[tipo].cliente[slug]?.[nome]
-  const daBase = indice[tipo].base[nome]
-  const carregar = doCliente ?? daBase
-
-  if (!carregar) {
-    throw new Error(`${tipo} "${nome}" não existe na base nem em src/clientes/${slug}/.`)
-  }
-
-  const componente = lazy(carregar)
+  const pronto = modulos.get(chave)
+  const componente = pronto ? pronto.default : lazy(carregadorDe(tipo, nome, slug))
   cacheLazy.set(chave, componente)
   return componente
 }
 
 export const resolverPagina = (nome, slug) => resolver('pagina', nome, slug)
 export const resolverComponente = (nome, slug) => resolver('componente', nome, slug)
+
+// Baixa em segundo plano as páginas do menu: quando clicar, já estão aqui.
+// Falha (sem internet etc.) não importa: a página baixa no clique, como antes.
+export function preCarregarPaginas(nomes, slug) {
+  for (const nome of nomes) {
+    const chave = `pagina:${slug}:${nome}`
+    if (modulos.has(chave)) continue
+    try {
+      carregadorDe('pagina', nome, slug)().then((m) => { if (m?.default) modulos.set(chave, m) }, () => {})
+    } catch {
+      // nome desconhecido: a rota mostra o erro quando abrir
+    }
+  }
+}
 
 // Para conferência (ex.: tela de admin, debug): o que este cliente tem de diferente.
 export function resumoDoCliente(slug) {

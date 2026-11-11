@@ -6,6 +6,8 @@ import { useAuth } from '@/context/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Pagina, Componente } from '@/clientes/Personalizavel'
 import { itensDeMenu } from '@/config/modulos'
+import { preCarregarPaginas } from '@/clientes/registro'
+import { preCarregarProdutos } from '@/hooks/useProdutos'
 
 // Telas fora de cliente (sem slug na URL).
 const LoginGeralPage = lazy(() => import('@/pages/login/LoginGeralPage'))
@@ -55,7 +57,7 @@ function RotasDoCliente() {
   return (
     <Routes>
       <Route path="login" element={<Pagina nome="LoginPage" />} />
-      <Route element={<RequerAcesso><Componente nome="ClienteLayout" /></RequerAcesso>}>
+      <Route element={<RequerAcesso><PreCarregar paginas={itens.map((i) => i.pagina)} /><Componente nome="ClienteLayout" /></RequerAcesso>}>
         {itens.map((item) =>
           item.caminho
             ? <Route key={item.caminho} path={item.caminho} element={<Pagina nome={item.pagina} />} />
@@ -101,6 +103,21 @@ function RequerAcesso({ children }) {
     )
   }
   return children
+}
+
+// Já com acesso: baixa as outras abas e sincroniza os produtos em segundo
+// plano, para o clique abrir na hora. Espera a tela atual terminar primeiro.
+function PreCarregar({ paginas }) {
+  const { slug, cliente } = useCliente()
+  const lista = paginas.join(',')
+  useEffect(() => {
+    const t = setTimeout(() => {
+      preCarregarPaginas(lista.split(','), slug)
+      if (cliente?.id) preCarregarProdutos(cliente.id)
+    }, 800)
+    return () => clearTimeout(t)
+  }, [lista, slug, cliente?.id])
+  return null
 }
 
 function Aviso({ texto, children }) {

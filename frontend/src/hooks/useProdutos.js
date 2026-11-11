@@ -126,6 +126,12 @@ export function useProdutos(clienteId) {
   }
 }
 
+// Sincroniza em segundo plano (logo depois de entrar), para Produtos/Vendas
+// abrirem com a lista pronta.
+export function preCarregarProdutos(clienteId) {
+  if (supabaseConfigurado && clienteId) sincronizar(clienteId)
+}
+
 // Ao sair da conta: esquece o que está em memória (o guardado é apagado
 // junto, em AuthContext).
 export function esquecerProdutos() {
