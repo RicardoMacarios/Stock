@@ -5,8 +5,8 @@ import {
   RefreshCw, ShoppingCart, Shirt, TrendingUp, TriangleAlert,
 } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
-import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
+import { useProdutos } from '@/hooks/useProdutos'
 import { dinheiro, inicioDeHoje } from '@/lib/formato'
 import {
   COR_SEM_VENDEDOR, corDoVendedor, proximoDia, totaisDasVendas, useVendasDoDia, useVendedores,
@@ -31,7 +31,7 @@ const LIMITE_REPOR = 6
 
 export default function DashboardPage({ children }) {
   const { slug } = useCliente()
-  const { produtos, erro, carregando, recarregar } = useProdutos()
+  const { produtos, erro, carregando, recarregar } = useProdutosDoPainel()
   const hoje = inicioDeHoje().getTime()
   const [dia, setDia] = useState(hoje)
   // Passou da meia-noite com a tela aberta em "hoje": acompanha o dia novo.
@@ -273,37 +273,12 @@ function useAgora(intervalo) {
 
 // ── Estoque: dados ────────────────────────────────────────────────────────
 
-function useProdutos() {
+// Lista guardada no navegador (a mesma de Produtos/Vendas): abre na hora.
+function useProdutosDoPainel() {
   const { cliente } = useCliente()
-  const clienteId = cliente?.id ?? null
-  const [versao, setVersao] = useState(0)
-  const chave = `${clienteId}:${versao}`
-  const [resultado, setResultado] = useState({ chave: null, produtos: [], erro: false })
-
-  useEffect(() => {
-    if (!supabaseConfigurado || !clienteId) return
-    let cancelado = false
-    // O RLS já limita aos produtos deste cliente; o filtro deixa explícito.
-    todasAsLinhas(() => supabase
-      .from('produtos')
-      .select('id, nome, quantidade, estoque_minimo, criado_em')
-      .eq('cliente_id', clienteId)
-      .order('id'))
-      .then(({ data, error }) => {
-        if (!cancelado) setResultado({ chave, produtos: data ?? [], erro: Boolean(error) })
-      })
-    return () => { cancelado = true }
-  }, [clienteId, chave])
-
-  const recarregar = () => setVersao((v) => v + 1)
-
-  if (!supabaseConfigurado) return { produtos: produtosDeExemplo(), erro: false, carregando: false, recarregar }
-  return {
-    produtos: resultado.produtos,
-    erro: resultado.chave === chave && resultado.erro,
-    carregando: resultado.chave !== chave,
-    recarregar,
-  }
+  const p = useProdutos(cliente?.id ?? null)
+  if (!supabaseConfigurado) return { produtos: produtosDeExemplo(), erro: false, carregando: false, recarregar: () => {} }
+  return { ...p, produtos: p.produtos ?? [] }
 }
 
 // ── Estoque: painel ───────────────────────────────────────────────────────

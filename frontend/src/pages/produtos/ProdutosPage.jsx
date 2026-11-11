@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Banknote, Boxes, Camera, CircleCheck, Package, PackagePlus, PackageX, Pencil, Plus, ScanBarcode, Trash2,
@@ -12,7 +12,7 @@ import { classeEntrada } from '@/lib/classes'
 import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import { situacao } from '@/pages/dashboard/resumo'
 import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
-import { todasAsLinhas } from '@/lib/consulta'
+import { useProdutos } from '@/hooks/useProdutos'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -39,27 +39,15 @@ const ORDENS = {
 export default function ProdutosPage({ children }) {
   const { cliente } = useCliente()
   const clienteId = cliente?.id
-  const [produtos, setProdutos] = useState(null)
+  // Lista guardada no navegador: abre na hora e busca só o que mudou.
+  const { produtos: guardados, recarregar: carregar } = useProdutos(clienteId)
+  const produtos = useMemo(() => guardados && guardados.map((p) => ({ ...p, situacao: situacao(p) })), [guardados])
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState('todos') // todos | baixo | zerado
   const [ordem, setOrdem] = useState('nome')
   const [camera, setCamera] = useState(false)
   // null | { produto: null (novo) ou o produto, codigo: código bipado para o novo }
   const [editando, setEditando] = useState(null)
-
-  const carregar = useCallback(async () => {
-    if (!clienteId) return
-    const { data, error } = await todasAsLinhas(() => supabase.from('produtos')
-      .select('id, nome, codigo, codigo_legado, quantidade, estoque_minimo, preco_custo, preco_venda, criado_em')
-      .eq('cliente_id', clienteId).order('nome').order('id'))
-    if (error) toast.error('Não foi possível carregar os produtos.')
-    setProdutos((data ?? []).map((p) => ({ ...p, situacao: situacao(p) })))
-  }, [clienteId])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial vinda do banco
-    carregar()
-  }, [carregar])
 
   // Bipou: peça cadastrada → mostra; nova → abre o cadastro com o código
   // preenchido (cadastrar a coleção é bipar e completar).

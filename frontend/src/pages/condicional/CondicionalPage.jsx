@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AlarmClock, Banknote, CalendarDays, Check, Minus, Plus, Search, ShoppingBag, Shirt, UserPlus } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
-import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { classeEntrada } from '@/lib/classes'
 import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import { useCarrinho } from '@/hooks/useCarrinho'
+import { useProdutos } from '@/hooks/useProdutos'
 import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
 import Passo from '@/components/vendas/Passo'
@@ -223,18 +223,8 @@ function NovoCondicional({ clienteId, vendedores, fechar, salvo, verAberto }) {
   const [saiuEm, setSaiuEm] = useState(diaLocal())
   const [devolverAte, setDevolverAte] = useState(somarDias(diaLocal(), 3))
   const [observacoes, setObservacoes] = useState('')
-  const [produtos, setProdutos] = useState(null)
+  const { produtos, recarregar: carregarProdutos } = useProdutos(clienteId) // guardada no navegador
   const [enviando, setEnviando] = useState(false)
-
-  const carregarProdutos = useCallback(async () => {
-    const { data } = await todasAsLinhas(() => supabase.from('produtos')
-      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda').eq('cliente_id', clienteId).order('nome').order('id'))
-    setProdutos(data ?? [])
-  }, [clienteId])
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial vinda do banco
-    carregarProdutos()
-  }, [carregarProdutos])
 
   const ativos = vendedores.filter((v) => v.ativo)
   // Um condicional aberto por cliente (o banco também barra).
@@ -270,6 +260,7 @@ function NovoCondicional({ clienteId, vendedores, fechar, salvo, verAberto }) {
     if (error) return toast.error(traduzirErro(error))
     toast.success(`Condicional registrado: ${fmtQtd(carrinho.pecas)} peça${carrinho.pecas === 1 ? '' : 's'} com ${pessoa?.nome ?? novo?.nome}.`)
     salvo()
+    carregarProdutos() // o estoque mudou: a lista guardada busca a diferença
   }
 
   return (
@@ -385,18 +376,11 @@ function Acerto({ cond: c, vendedores, fechar, salvo }) {
   const [precos, setPrecos] = useState(() => Object.fromEntries(itens.map((i) => [i.id, paraCampo(i.preco_unitario)])))
   const extras = useCarrinho() // peças a mais escolhidas no acerto
   const [adicionando, setAdicionando] = useState(false)
-  const [produtos, setProdutos] = useState(null)
+  const { produtos } = useProdutos(c.cliente_id) // guardada no navegador
   const [enviando, setEnviando] = useState(false)
   const hoje = diaLocal()
   const p = aberto ? prazo(c, hoje) : null
 
-  // Produtos só quando for adicionar peça (no acerto aberto).
-  useEffect(() => {
-    if (!aberto || !adicionando || produtos) return
-    todasAsLinhas(() => supabase.from('produtos').select('id, nome, codigo, codigo_legado, quantidade, preco_venda')
-      .eq('cliente_id', c.cliente_id).order('nome').order('id'))
-      .then(({ data }) => setProdutos(data ?? []))
-  }, [aberto, adicionando, produtos, c.cliente_id])
 
   const precoDe = (i) => lerNumero(precos[i.id]) ?? Number(i.preco_unitario)
   const totalLevadas = itens.reduce((s, i) => s + (comprou[i.id] ?? 0) * (precoDe(i) || 0), 0)

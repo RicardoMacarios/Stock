@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Check, HandCoins, Undo2, UserPlus, UserRound } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
-import { todasAsLinhas } from '@/lib/consulta'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { dinheiro, horaCurta, lerNumero, quantidade as fmtQtd } from '@/lib/formato'
 import { useCarrinho } from '@/hooks/useCarrinho'
+import { useProdutos } from '@/hooks/useProdutos'
 import { aplicarDesconto, lerPercentual, totalComDesconto } from '@/lib/desconto'
 import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
@@ -30,19 +30,8 @@ export default function VendasPage({ children }) {
   const clienteId = cliente?.id
   const { vendedores } = useVendedores(clienteId)
   const hoje = useVendasDeHoje(clienteId)
-  const [produtos, setProdutos] = useState(null)
-
-  const carregarProdutos = useCallback(async () => {
-    if (!clienteId) return
-    const { data } = await todasAsLinhas(() => supabase.from('produtos')
-      .select('id, nome, codigo, codigo_legado, quantidade, preco_venda, preco_custo').eq('cliente_id', clienteId).order('nome').order('id'))
-    setProdutos(data ?? [])
-  }, [clienteId])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial vinda do banco
-    carregarProdutos()
-  }, [carregarProdutos])
+  // Lista guardada no navegador: abre na hora e busca só o que mudou.
+  const { produtos, recarregar: carregarProdutos } = useProdutos(clienteId)
 
   if (!supabaseConfigurado) {
     return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
