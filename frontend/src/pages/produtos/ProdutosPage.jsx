@@ -17,6 +17,7 @@ import MaisAoRolar from '@/components/ui/MaisAoRolar'
 import { categoriasDe, nomeCategoria, normalizarCategoria } from '@/lib/categorias'
 import { gerarCodigoDaPeca } from '@/lib/qrcode'
 import Etiquetas from '@/components/produtos/Etiquetas'
+import EscolherCategoria from '@/components/produtos/EscolherCategoria'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -452,29 +453,8 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
               placeholder="Ex.: Camiseta básica preta M" className={classeEntrada} />
           </Rotulo>
 
-          <Rotulo texto="Categoria">
-            <input list="categorias-da-loja" maxLength={60} value={campos.categoria} onChange={mudar('categoria')}
-              placeholder="Ex.: Camiseta, Blusa, Bermuda" className={classeEntrada} />
-            <datalist id="categorias-da-loja">
-              {categorias.map((c) => <option key={c.valor} value={c.rotulo} />)}
-            </datalist>
-          </Rotulo>
-          {categorias.length > 0 && (
-            <div className="-mt-2 flex flex-wrap gap-1.5">
-              {categorias.slice(0, 12).map((c) => {
-                const ativa = normalizarCategoria(campos.categoria) === c.valor
-                return (
-                  <button key={c.valor} type="button" onClick={() => setCampos((x) => ({ ...x, categoria: ativa ? '' : c.rotulo }))}
-                    aria-pressed={ativa}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      ativa ? 'border-acento bg-acento/10 font-semibold text-acento' : 'border-borda-forte text-texto-2 hover:border-acento hover:text-acento'
-                    }`}>
-                    {c.rotulo}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <EscolherCategoria categorias={categorias} valor={campos.categoria}
+            aoMudar={(categoria) => setCampos((c) => ({ ...c, categoria }))} />
 
           <div>
             <label htmlFor="codigo" className="block text-sm font-medium text-texto-2">
