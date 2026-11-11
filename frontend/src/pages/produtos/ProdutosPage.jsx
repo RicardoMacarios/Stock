@@ -291,6 +291,25 @@ function LinhaProduto({ produto: p, editar, mudou }) {
   )
 }
 
+// Lucro % sobre o custo ⇄ preço de venda.
+const ATALHOS_LUCRO = [50, 100, 150, 200]
+
+// Custo + % → venda no formato do campo ("100,00"). null se faltar algo.
+function vendaComLucro(custoTexto, lucroTexto) {
+  const custo = lerNumero(custoTexto)
+  const pct = lerNumero(lucroTexto)
+  if (custo === null || pct === null || Number.isNaN(custo) || Number.isNaN(pct) || custo < 0) return null
+  return paraCampo(Math.round(custo * (100 + pct)) / 100)
+}
+
+// Custo e venda → % sobre o custo ("100" ou "37,5"). Vazio sem custo.
+function lucroSobreCusto(custo, venda) {
+  const c = Number(custo)
+  if (custo === null || custo === undefined || venda === null || venda === undefined || !(c > 0) || Number.isNaN(Number(venda))) return ''
+  const pct = Math.round(((Number(venda) - c) / c) * 1000) / 10
+  return String(pct).replace('.', ',')
+}
+
 const iniciais = (nome) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0)).join('').toUpperCase()
 
 // ── Painel de cadastro/edição ─────────────────────────────────────────────
@@ -311,6 +330,26 @@ function PainelProduto({ produto, codigoInicial, clienteId, fechar, salvo }) {
   const [camera, setCamera] = useState(false)
   const [apagando, setApagando] = useState(false)
   const mudar = (chave) => (e) => setCampos((c) => ({ ...c, [chave]: e.target.value }))
+
+  // Lucro % sobre o custo (100% = custo 50 → venda 100). Os três campos
+  // conversam: mudar o % ou o custo recalcula a venda; digitar a venda à mão
+  // recalcula o %.
+  const [lucro, setLucro] = useState(() => (produto ? lucroSobreCusto(produto.preco_custo, produto.preco_venda) : ''))
+  function mudarLucro(texto) {
+    setLucro(texto)
+    const venda = vendaComLucro(campos.preco_custo, texto)
+    if (venda !== null) setCampos((c) => ({ ...c, preco_venda: venda }))
+  }
+  function mudarCusto(e) {
+    const custo = e.target.value
+    const venda = vendaComLucro(custo, lucro)
+    setCampos((c) => ({ ...c, preco_custo: custo, ...(venda !== null ? { preco_venda: venda } : {}) }))
+  }
+  function mudarVenda(e) {
+    const venda = e.target.value
+    setCampos((c) => ({ ...c, preco_venda: venda }))
+    setLucro(lucroSobreCusto(lerNumero(campos.preco_custo), lerNumero(venda)))
+  }
 
   const custo = lerNumero(campos.preco_custo)
   const venda = lerNumero(campos.preco_venda)
@@ -391,18 +430,32 @@ function PainelProduto({ produto, codigoInicial, clienteId, fechar, salvo }) {
 
           <fieldset className="rounded-2xl border border-borda p-4">
             <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-texto-3">Preço</legend>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Rotulo texto="Custo (R$)">
-                <input inputMode="decimal" value={campos.preco_custo} onChange={mudar('preco_custo')} placeholder="0,00" className={classeEntrada} />
+                <input inputMode="decimal" value={campos.preco_custo} onChange={mudarCusto} placeholder="0,00" className={classeEntrada} />
+              </Rotulo>
+              <Rotulo texto="Lucro (%)">
+                <input inputMode="decimal" value={lucro} onChange={(e) => mudarLucro(e.target.value)} placeholder="100"
+                  aria-describedby="lucro-ajuda" className={classeEntrada} />
               </Rotulo>
               <Rotulo texto="Venda (R$)">
-                <input inputMode="decimal" value={campos.preco_venda} onChange={mudar('preco_venda')} placeholder="0,00" className={classeEntrada} />
+                <input inputMode="decimal" value={campos.preco_venda} onChange={mudarVenda} placeholder="0,00" className={classeEntrada} />
               </Rotulo>
             </div>
-            <p className="mt-3 text-sm text-texto-3">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {ATALHOS_LUCRO.map((n) => (
+                <button key={n} type="button" onClick={() => mudarLucro(String(n))}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                    lerNumero(lucro) === n ? 'border-acento bg-acento/10 font-semibold text-acento' : 'border-borda-forte text-texto-2 hover:border-acento hover:text-acento'
+                  }`}>
+                  {n}%
+                </button>
+              ))}
+            </div>
+            <p id="lucro-ajuda" className="mt-3 text-sm text-texto-3">
               {margem !== null
-                ? <>Lucro por peça <strong className="text-texto">{dinheiro(lucroPeca)}</strong> · margem <strong className={margem >= 0 ? 'text-ok' : 'text-danger'}>{margem}%</strong></>
-                : 'Com custo e venda, mostramos o lucro por peça.'}
+                ? <>Lucro por peça <strong className="text-texto">{dinheiro(lucroPeca)}</strong> · margem de <strong className={margem >= 0 ? 'text-ok' : 'text-danger'}>{margem}%</strong> da venda</>
+                : 'Informe o custo e o lucro % (a venda é calculada) ou digite a venda à mão.'}
             </p>
           </fieldset>
 
