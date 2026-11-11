@@ -15,7 +15,7 @@ import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 import { useProdutos } from '@/hooks/useProdutos'
 import MaisAoRolar from '@/components/ui/MaisAoRolar'
 import { categoriasDe, nomeCategoria, normalizarCategoria } from '@/lib/categorias'
-import { gerarCodigoDaPeca } from '@/lib/qrcode'
+import { codigoLivre, gerarCodigoDaPeca } from '@/lib/qrcode'
 import Etiquetas from '@/components/produtos/Etiquetas'
 import EscolherCategoria from '@/components/produtos/EscolherCategoria'
 
@@ -208,14 +208,14 @@ export default function ProdutosPage({ children }) {
 
       {editando && (
         <PainelProduto key={editando.produto?.id ?? `novo:${editando.codigo ?? ''}`} produto={editando.produto}
-          codigoInicial={editando.codigo} clienteId={clienteId} categorias={categorias}
+          codigoInicial={editando.codigo} clienteId={clienteId} categorias={categorias} produtos={guardados}
           fechar={() => setEditando(null)}
           salvo={(salvoAgora, novo) => { setEditando(null); carregar(); if (novo && salvoAgora) setEtiqueta(salvoAgora) }}
           abrirEtiqueta={(p) => { setEditando(null); setEtiqueta(p) }} />
       )}
 
       {/* Peça nova já abre a etiqueta (QR Code + nome + valor) para imprimir */}
-      {etiqueta && <Etiquetas produto={etiqueta} fechar={() => setEtiqueta(null)} mudou={carregar} />}
+      {etiqueta && <Etiquetas produto={etiqueta} clienteId={clienteId} fechar={() => setEtiqueta(null)} mudou={carregar} />}
 
       {camera && (
         <Suspense fallback={null}>
@@ -343,7 +343,7 @@ const iniciais = (nome) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p.cha
 // ── Painel de cadastro/edição ─────────────────────────────────────────────
 // Lateral no computador; folha que sobe no celular.
 
-function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fechar, salvo, abrirEtiqueta }) {
+function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], produtos = [], fechar, salvo, abrirEtiqueta }) {
   const [campos, setCampos] = useState(() => (produto
     ? {
         nome: produto.nome,
@@ -380,6 +380,13 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
     setLucro(lucroSobreCusto(lerNumero(campos.preco_custo), lerNumero(venda)))
   }
 
+  // Código já usado por OUTRO produto (código ou código antigo): avisa na
+  // hora, antes de salvar. O banco também barra (produtos_codigo_unico).
+  const codigoDigitado = campos.codigo.trim()
+  const q = codigoDigitado.toLowerCase()
+  const donoDoCodigo = !codigoDigitado ? null : (produtos ?? []).find((p) => p.id !== produto?.id &&
+    (String(p.codigo ?? '').trim().toLowerCase() === q || (p.codigo_legado != null && String(p.codigo_legado) === codigoDigitado))) ?? null
+
   const custo = lerNumero(campos.preco_custo)
   const venda = lerNumero(campos.preco_venda)
   const lucroPeca = custo >= 0 && venda > 0 && custo !== null ? venda - custo : null
@@ -406,18 +413,27 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
     if (!valores.nome) return toast.error('Informe o nome do produto.')
     if (Object.values(valores).some((v) => Number.isNaN(v))) return toast.error('Confira os números (use vírgula para centavos).')
     if (valores.quantidade < 0) return toast.error('A quantidade não pode ser negativa.')
-
-    // Peça nova sem código do fornecedor: gera um, que vai no QR da etiqueta.
-    const gerado = !produto && !valores.codigo
-    if (gerado) valores.codigo = gerarCodigoDaPeca()
+    if (donoDoCodigo) return toast.error(`Este código já é do produto “${donoDoCodigo.nome}”.`)
 
     setSalvando(true)
+    // Peça nova sem código do fornecedor: gera um que ninguém usa (conferido
+    // no banco), e ele vai no QR da etiqueta.
+    const gerado = !produto && !valores.codigo
+    if (gerado) {
+      try {
+        valores.codigo = await codigoLivre(supabase, clienteId)
+      } catch (erro) {
+        setSalvando(false)
+        return toast.error(traduzirErro(erro))
+      }
+    }
+
     const gravar = () => (produto
       ? supabase.from('produtos').update(valores).eq('id', produto.id)
       : supabase.from('produtos').insert({ ...valores, cliente_id: clienteId })
     ).select('id, nome, codigo, codigo_legado, quantidade, preco_venda').single()
     let { data, error } = await gravar()
-    // Código gerado bateu com outro (raríssimo): tenta outro.
+    // Alguém cadastrou o mesmo código gerado no mesmo instante: gera outro.
     if (error && gerado && String(error.message).includes('produtos_codigo_unico')) {
       valores.codigo = gerarCodigoDaPeca()
       ;({ data, error } = await gravar())
@@ -464,12 +480,18 @@ function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fec
               {/* Enter do leitor não envia o formulário: só preenche o código. */}
               <input id="codigo" maxLength={120} value={campos.codigo} onChange={mudar('codigo')}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-                placeholder="Código de barras ou QR" className={`${classeEntrada} font-mono`} />
+                placeholder="Código de barras ou QR" aria-invalid={Boolean(donoDoCodigo)} aria-describedby="codigo-aviso"
+                className={`${classeEntrada} font-mono ${donoDoCodigo ? 'border-danger focus:border-danger' : ''}`} />
               <button type="button" onClick={() => setCamera(true)} aria-label="Ler código com a câmera" title="Ler com a câmera"
                 className="grid w-12 shrink-0 place-items-center rounded-xl border border-borda-forte text-texto-2 transition hover:border-acento hover:text-acento">
                 <Camera size={18} />
               </button>
             </div>
+            {donoDoCodigo && (
+              <p id="codigo-aviso" className="mt-1.5 text-xs font-medium text-danger">
+                Este código já é do produto “{donoDoCodigo.nome}”. Use outro ou deixe em branco para o sistema gerar.
+              </p>
+            )}
           </div>
 
           <fieldset className="rounded-2xl border border-borda p-4">

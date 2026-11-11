@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { traduzirErro } from '@/lib/erros'
 import { classeEntrada } from '@/lib/classes'
 import { dinheiro } from '@/lib/formato'
-import { gerarCodigoDaPeca, qrEmSvg } from '@/lib/qrcode'
+import { codigoLivre, qrEmSvg } from '@/lib/qrcode'
 
 // Etiqueta da peça: QR Code com o código (é o que o caixa lê para achar o
 // produto) + nome, valor e código impressos. Sai na impressora de etiquetas
@@ -33,7 +33,7 @@ function medidas(texto) {
   return w >= 15 && h >= 10 && w <= 150 && h <= 150 ? { w, h } : { w: 50, h: 30 }
 }
 
-export default function Etiquetas({ produto, fechar, mudou }) {
+export default function Etiquetas({ produto, clienteId, fechar, mudou }) {
   const [codigo, setCodigo] = useState(produto.codigo || (produto.codigo_legado != null ? String(produto.codigo_legado) : ''))
   const [qr, setQr] = useState(null)
   const [tamanho, setTamanho] = useState(lerTamanho)
@@ -52,7 +52,13 @@ export default function Etiquetas({ produto, fechar, mudou }) {
 
   async function gerarCodigo() {
     setGerando(true)
-    const novo = gerarCodigoDaPeca()
+    let novo
+    try {
+      novo = await codigoLivre(supabase, clienteId)
+    } catch (erro) {
+      setGerando(false)
+      return toast.error(traduzirErro(erro))
+    }
     const { error } = await supabase.from('produtos').update({ codigo: novo }).eq('id', produto.id)
     setGerando(false)
     if (error) return toast.error(traduzirErro(error))

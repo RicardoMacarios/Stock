@@ -20,8 +20,22 @@ export async function qrEmSvg(texto) {
 
 // Código novo para peça cadastrada sem etiqueta do fornecedor: 13 dígitos
 // começando com 2 (faixa de uso interno da loja nos códigos de barras).
+// Use codigoLivre(), que confere no banco se já existe.
 export function gerarCodigoDaPeca() {
   const tempo = String(Date.now()).slice(-10)
   const sorte = String(Math.floor(Math.random() * 100)).padStart(2, '0')
   return `2${tempo}${sorte}`
+}
+
+// Gera um código e confere no banco que nenhum produto da loja já usa.
+// (O código antigo é um número inteiro pequeno: nunca bate com 13 dígitos.)
+export async function codigoLivre(supabase, clienteId) {
+  for (let tentativa = 0; tentativa < 8; tentativa++) {
+    const codigo = gerarCodigoDaPeca()
+    const { data, error } = await supabase.from('produtos').select('id').eq('cliente_id', clienteId)
+      .eq('codigo', codigo).limit(1)
+    if (error) throw error
+    if (!data.length) return codigo
+  }
+  throw new Error('produtos_codigo_unico')
 }
