@@ -14,6 +14,7 @@ import { situacao } from '@/pages/dashboard/resumo'
 import { acharPorCodigo, buscarProdutos } from '@/lib/busca'
 import { useProdutos } from '@/hooks/useProdutos'
 import MaisAoRolar from '@/components/ui/MaisAoRolar'
+import { categoriasDe, nomeCategoria, normalizarCategoria } from '@/lib/categorias'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
 // Escrita direto na tabela: a policy produtos_do_cliente já limita ao cliente.
@@ -22,7 +23,7 @@ import MaisAoRolar from '@/components/ui/MaisAoRolar'
 // Câmera só baixa a biblioteca de leitura (ZXing) quando abre.
 const LeitorCamera = lazy(() => import('@/components/ui/LeitorCamera'))
 
-const VAZIO = { nome: '', codigo: '', quantidade: '', estoque_minimo: '', preco_custo: '', preco_venda: '' }
+const VAZIO = { nome: '', codigo: '', categoria: '', quantidade: '', estoque_minimo: '', preco_custo: '', preco_venda: '' }
 
 // Situação sempre com ícone + rótulo, nunca só cor.
 const SITUACAO = {
@@ -51,6 +52,7 @@ export default function ProdutosPage({ children }) {
   const produtos = useMemo(() => guardados && guardados.map((p) => ({ ...p, situacao: situacao(p) })), [guardados])
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState('todos') // todos | baixo | zerado
+  const [categoria, setCategoria] = useState('') // '' = todas
   const [ordem, setOrdem] = useState('nome')
   const [camera, setCamera] = useState(false)
   // null | { produto: null (novo) ou o produto, codigo: código bipado para o novo }
@@ -80,13 +82,14 @@ export default function ProdutosPage({ children }) {
     // Ordena antes e busca depois: com busca, o mais relevante (código exato)
     // sobe e o empate fica na ordem escolhida.
     const ordenados = (produtos ?? [])
-      .filter((p) => filtro === 'todos' || p.situacao === filtro)
+      .filter((p) => (filtro === 'todos' || p.situacao === filtro) && (!categoria || p.categoria === categoria))
       .sort(ORDENS[ordem].comparar)
     return buscarProdutos(ordenados, busca)
-  }, [produtos, busca, filtro, ordem])
+  }, [produtos, busca, filtro, ordem, categoria])
+  const categorias = useMemo(() => categoriasDe(produtos), [produtos])
 
   // Quantos desenhar. Mudou busca, filtro ou ordem: volta ao começo.
-  const chaveLista = `${busca}|${filtro}|${ordem}`
+  const chaveLista = `${busca}|${filtro}|${ordem}|${categoria}`
   const [pagina, setPagina] = useState({ chave: chaveLista, n: POR_VEZ })
   const mostrar = pagina.chave === chaveLista ? pagina.n : POR_VEZ
   const mais = useCallback(() => setPagina((p) => ({ chave: chaveLista, n: (p.chave === chaveLista ? p.n : POR_VEZ) + POR_VEZ })), [chaveLista])
@@ -157,6 +160,21 @@ export default function ProdutosPage({ children }) {
               </select>
             </label>
           </div>
+          {categorias.length > 0 && (
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-5 md:px-5" role="group" aria-label="Filtrar por categoria">
+              {[{ valor: '', rotulo: 'Todas as categorias', quantos: null }, ...categorias].map((c) => (
+                <button key={c.valor || 'todas'} type="button" onClick={() => setCategoria(c.valor)} aria-pressed={categoria === c.valor}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    categoria === c.valor ? 'border-acento bg-acento/12 text-texto' : 'border-borda-forte text-texto-2 hover:bg-elevado'
+                  }`}>
+                  {c.rotulo}
+                  {c.quantos !== null && (
+                    <span className={`rounded-full px-1.5 tabular-nums ${categoria === c.valor ? 'bg-acento/20' : 'bg-elevado'}`}>{c.quantos}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Lista */}
@@ -186,7 +204,7 @@ export default function ProdutosPage({ children }) {
 
       {editando && (
         <PainelProduto key={editando.produto?.id ?? `novo:${editando.codigo ?? ''}`} produto={editando.produto}
-          codigoInicial={editando.codigo} clienteId={clienteId}
+          codigoInicial={editando.codigo} clienteId={clienteId} categorias={categorias}
           fechar={() => setEditando(null)} salvo={() => { setEditando(null); carregar() }} />
       )}
 
@@ -244,6 +262,7 @@ function LinhaProduto({ produto: p, editar, mudou }) {
           <p className="truncate font-medium">{p.nome}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-texto-3">
             {p.codigo_legado != null && <span className="rounded bg-elevado px-1.5 py-0.5 font-mono text-texto-2" title="Código antigo">#{p.codigo_legado}</span>}
+            {p.categoria && <span className="rounded bg-acento/10 px-1.5 py-0.5 text-acento">{nomeCategoria(p.categoria)}</span>}
             {p.codigo && <span className="rounded bg-fundo px-1.5 py-0.5 font-mono">{p.codigo}</span>}
             <span>custo {p.preco_custo != null ? dinheiro(p.preco_custo) : '—'}</span>
             {margem !== null && <span className="text-texto-2">· margem {margem}%</span>}
@@ -315,11 +334,12 @@ const iniciais = (nome) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p.cha
 // ── Painel de cadastro/edição ─────────────────────────────────────────────
 // Lateral no computador; folha que sobe no celular.
 
-function PainelProduto({ produto, codigoInicial, clienteId, fechar, salvo }) {
+function PainelProduto({ produto, codigoInicial, clienteId, categorias = [], fechar, salvo }) {
   const [campos, setCampos] = useState(() => (produto
     ? {
         nome: produto.nome,
         codigo: produto.codigo ?? '',
+        categoria: produto.categoria ? nomeCategoria(produto.categoria) : '',
         quantidade: String(produto.quantidade).replace('.', ','),
         estoque_minimo: produto.estoque_minimo == null ? '' : String(produto.estoque_minimo).replace('.', ','),
         preco_custo: paraCampo(produto.preco_custo),
@@ -368,6 +388,7 @@ function PainelProduto({ produto, codigoInicial, clienteId, fechar, salvo }) {
     const valores = {
       nome: campos.nome.trim(),
       codigo: campos.codigo.trim() || null,
+      categoria: normalizarCategoria(campos.categoria) || null,
       quantidade: lerNumero(campos.quantidade) ?? 0,
       estoque_minimo: lerNumero(campos.estoque_minimo),
       preco_custo: custo,
@@ -411,6 +432,30 @@ function PainelProduto({ produto, codigoInicial, clienteId, fechar, salvo }) {
             <input autoFocus required maxLength={120} value={campos.nome} onChange={mudar('nome')}
               placeholder="Ex.: Camiseta básica preta M" className={classeEntrada} />
           </Rotulo>
+
+          <Rotulo texto="Categoria">
+            <input list="categorias-da-loja" maxLength={60} value={campos.categoria} onChange={mudar('categoria')}
+              placeholder="Ex.: Camiseta, Blusa, Bermuda" className={classeEntrada} />
+            <datalist id="categorias-da-loja">
+              {categorias.map((c) => <option key={c.valor} value={c.rotulo} />)}
+            </datalist>
+          </Rotulo>
+          {categorias.length > 0 && (
+            <div className="-mt-2 flex flex-wrap gap-1.5">
+              {categorias.slice(0, 12).map((c) => {
+                const ativa = normalizarCategoria(campos.categoria) === c.valor
+                return (
+                  <button key={c.valor} type="button" onClick={() => setCampos((x) => ({ ...x, categoria: ativa ? '' : c.rotulo }))}
+                    aria-pressed={ativa}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      ativa ? 'border-acento bg-acento/10 font-semibold text-acento' : 'border-borda-forte text-texto-2 hover:border-acento hover:text-acento'
+                    }`}>
+                    {c.rotulo}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           <div>
             <label htmlFor="codigo" className="block text-sm font-medium text-texto-2">

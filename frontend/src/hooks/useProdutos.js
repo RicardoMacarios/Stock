@@ -13,8 +13,8 @@ import { guardar, lerGuardado } from '@/lib/guardado'
 // busca só a diferença.
 
 // Mudou as colunas? Troque a versão: o que estiver guardado é descartado.
-const VERSAO = 1
-const COLUNAS = 'id, nome, codigo, codigo_legado, quantidade, estoque_minimo, preco_custo, preco_venda, criado_em, atualizado_em'
+const VERSAO = 2
+const COLUNAS = 'id, nome, codigo, codigo_legado, quantidade, estoque_minimo, preco_custo, preco_venda, categoria, criado_em, atualizado_em'
 // Volta um pouco no tempo ao buscar a diferença: uma alteração gravada em
 // paralelo com a última busca não fica de fora (repetir é inofensivo).
 const FOLGA_MS = 2 * 60 * 1000
