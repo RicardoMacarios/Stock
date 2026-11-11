@@ -42,7 +42,9 @@ export function resumirEstoque(produtos) {
     .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
     .slice(0, 5)
 
-  return { total: lista.length, unidades, contagem, repor, recentes }
+  const porId = new Map(lista.map((p) => [p.id, p]))
+
+  return { total: lista.length, unidades, contagem, repor, recentes, porId }
 }
 
 const formatador = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -58,6 +60,27 @@ export function quandoFoi(data, agora = new Date()) {
   if (dias === 1) return 'ontem'
   if (dias < 7) return `há ${dias} dias`
   return new Date(data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+}
+
+// Vendas dos últimos 30 dias dos produtos de exemplo (modo sem banco), para
+// os cartões Mais vendidos e Precisa repor terem o que mostrar. Sorteio fixo.
+export function vendasRecentesDeExemplo(agora = new Date()) {
+  const produtos = produtosDeExemplo(agora)
+  let semente = 11
+  const sortear = () => ((semente = (semente * 9301 + 49297) % 233280) / 233280)
+  const linhas = []
+  for (let dia = 0; dia < 30; dia++) {
+    for (let k = 0; k < 4; k++) {
+      // Peso maior nos primeiros da lista: o ranking fica com cara de real.
+      const p = produtos[Math.floor(sortear() ** 1.6 * produtos.length)]
+      linhas.push({
+        produto_id: p.id, produto_nome: p.nome, quantidade: 1 + Math.floor(sortear() * 3),
+        preco_unitario: 9.9 + Math.round(sortear() * 400) / 10,
+        vendido_em: new Date(agora.getTime() - dia * 86_400_000 - sortear() * 36e5).toISOString(),
+      })
+    }
+  }
+  return linhas
 }
 
 // Só para o modo sem banco (frontend/.env vazio): dá para ver a tela pronta.
@@ -76,6 +99,8 @@ export function produtosDeExemplo(agora = new Date()) {
     ['Molho de tomate 340g', 9, 12, 6],
     ['Detergente 500ml', 48, null, 15],
     ['Papel higiênico 12un', 17, 6, 30],
+    ['Leave-in revitalizante T300M blackberry com óleo de argan e queratina 300ml', 0, 4, 40],
+    ['Shampoo 2L', 3, 5, 18],
   ].map(([nome, quantidade, estoque_minimo, dias], i) => ({
     id: `exemplo-${i}`, nome, quantidade, estoque_minimo, criado_em: diasAtras(dias),
   }))

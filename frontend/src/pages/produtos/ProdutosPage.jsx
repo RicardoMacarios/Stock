@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useSearchParams } from 'react-router-dom'
 import {
   Banknote, Boxes, Camera, CircleCheck, Package, PackagePlus, PackageX, Pencil, Plus, QrCode, ScanBarcode, Trash2,
   TriangleAlert, X,
@@ -54,7 +55,9 @@ export default function ProdutosPage({ children }) {
   const { produtos: guardados, recarregar: carregar } = useProdutos(clienteId)
   const produtos = useMemo(() => guardados && guardados.map((p) => ({ ...p, situacao: situacao(p) })), [guardados])
   const [busca, setBusca] = useState('')
-  const [filtro, setFiltro] = useState('todos') // todos | baixo | zerado
+  // ?filtro=zerado|baixo: o dashboard abre a lista já filtrada.
+  const [params] = useSearchParams()
+  const [filtro, setFiltro] = useState(() => (['baixo', 'zerado'].includes(params.get('filtro')) ? params.get('filtro') : 'todos')) // todos | baixo | zerado
   const [categoria, setCategoria] = useState('') // '' = todas
   const [ordem, setOrdem] = useState('nome')
   const [camera, setCamera] = useState(false)

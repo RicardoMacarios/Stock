@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Banknote, Boxes, CalendarDays, ChevronLeft, ChevronRight, CircleCheck, Package, PackagePlus, PackageX,
+  Banknote, Boxes, CircleCheck, Package, PackagePlus, PackageX,
   RefreshCw, ShoppingCart, Shirt, TrendingUp, TriangleAlert,
 } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
@@ -11,9 +11,10 @@ import { dinheiro, inicioDeHoje } from '@/lib/formato'
 import {
   COR_SEM_VENDEDOR, corDoVendedor, proximoDia, totaisDasVendas, useVendasDoDia, useVendedores,
 } from '@/pages/vendas/dados'
+import SeletorDeDia from '@/components/ui/SeletorDeDia'
 import PainelVendedores from './GraficoVendedores'
 import {
-  formatarNumero, porcentagem, produtosDeExemplo, proporcaoDoMinimo, resumirEstoque,
+  formatarNumero, porcentagem, produtosDeExemplo, resumirEstoque, vendasRecentesDeExemplo,
 } from './resumo'
 
 // Tela inicial do cliente (/:slug): vendas de hoje em cima, estoque embaixo.
@@ -27,7 +28,8 @@ const SITUACOES = {
   zerado: { rotulo: 'Zerado', icone: PackageX, texto: 'text-danger', barra: 'bg-danger', chip: 'bg-danger/12 text-danger' },
 }
 
-const LIMITE_REPOR = 6
+const LIMITE_REPOR = 7
+const DIAS_GIRO = 30 // "vende" = saiu nos últimos 30 dias
 
 export default function DashboardPage({ children }) {
   const { slug } = useCliente()
@@ -82,42 +84,6 @@ function Cabecalho({ slug, dia, hoje, setDia }) {
         </Link>
       </div>
     </header>
-  )
-}
-
-// ‹ Hoje › com calendário no meio. Não deixa ir para o futuro.
-function SeletorDeDia({ dia, hoje, setDia }) {
-  const ehHoje = dia === hoje
-  const rotulo = ehHoje ? 'Hoje' : dia === proximoDia(hoje, -1) ? 'Ontem'
-    : new Date(dia).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-  const paraCampo = (ms) => {
-    const d = new Date(ms)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-  const botao = 'grid h-10 w-10 place-items-center text-texto-2 transition hover:bg-elevado hover:text-texto disabled:opacity-30 disabled:hover:bg-transparent'
-
-  return (
-    <div className="flex items-center overflow-hidden rounded-xl border border-borda-forte bg-card">
-      <button type="button" onClick={() => setDia(proximoDia(dia, -1))} aria-label="Dia anterior" className={botao}>
-        <ChevronLeft size={18} />
-      </button>
-      <label className="relative flex h-10 min-w-24 cursor-pointer items-center justify-center gap-2 border-x border-borda px-3 text-sm font-semibold hover:bg-elevado">
-        <CalendarDays size={16} className="text-acento" aria-hidden />
-        {rotulo}
-        {/* Calendário nativo por cima, invisível: abre ao clicar no rótulo. */}
-        <input type="date" aria-label="Escolher dia" max={paraCampo(hoje)} value={paraCampo(dia)}
-          onChange={(e) => {
-            if (!e.target.value) return
-            const [a, m, d] = e.target.value.split('-').map(Number)
-            setDia(Math.min(new Date(a, m - 1, d).getTime(), hoje))
-          }}
-          onClick={(e) => e.currentTarget.showPicker?.()}
-          className="absolute inset-0 cursor-pointer opacity-0" />
-      </label>
-      <button type="button" onClick={() => setDia(proximoDia(dia))} disabled={ehHoje} aria-label="Próximo dia" className={botao}>
-        <ChevronRight size={18} />
-      </button>
-    </div>
   )
 }
 
@@ -286,7 +252,7 @@ function useProdutosDoPainel() {
 function Painel({ resumo, slug }) {
   const { total, unidades, contagem, repor } = resumo
   const { cliente } = useCliente()
-  const maisVendidos = useMaisVendidos(cliente?.id)
+  const recentes = useVendasRecentes(cliente?.id)
 
   return (
     <div className="space-y-4">
@@ -303,30 +269,11 @@ function Painel({ resumo, slug }) {
 
       <SaudeDoEstoque contagem={contagem} total={total} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <Cartao titulo="Precisa repor" className="min-w-0 lg:col-span-3"
-          extra={<Link to={`/${slug}/produtos`} className="text-xs font-medium text-acento hover:underline">Ver produtos</Link>}>
-          {repor.length === 0 ? (
-            <div className="flex items-center gap-3 rounded-xl bg-ok/8 px-4 py-6">
-              <CircleCheck size={22} className="shrink-0 text-ok" />
-              <div>
-                <p className="text-sm font-medium">Tudo em dia</p>
-                <p className="text-xs text-texto-3">Nenhum produto no mínimo ou zerado.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <ul className="space-y-2">
-                {repor.slice(0, LIMITE_REPOR).map((p) => <LinhaRepor key={p.id} produto={p} />)}
-              </ul>
-              {repor.length > LIMITE_REPOR && (
-                <p className="pt-3 text-xs text-texto-3">e mais {repor.length - LIMITE_REPOR} em Produtos → filtro Baixo/Zerado</p>
-              )}
-            </>
-          )}
-        </Cartao>
-
-        <MaisVendidos {...maisVendidos} className="min-w-0 lg:col-span-2" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        <PrecisaRepor repor={repor} contagem={contagem} giro={recentes.giro} carregando={recentes.carregando} slug={slug}
+          className="min-w-0" />
+        <MaisVendidos linhas={recentes.linhas} carregando={recentes.carregando} produtos={resumo.porId}
+          className="min-w-0" />
       </div>
     </div>
   )
@@ -369,99 +316,244 @@ function SaudeDoEstoque({ contagem, total }) {
   )
 }
 
-function LinhaRepor({ produto: p }) {
-  const s = SITUACOES[p.situacao]
-  const temMinimo = p.estoque_minimo != null
-  const faltam = temMinimo ? Math.max(0, Number(p.estoque_minimo) - Number(p.quantidade)) : 0
-  return (
-    <li className="flex items-center gap-3 rounded-xl border border-borda bg-fundo/40 p-3">
-      <span aria-hidden className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xs font-bold ${s.chip}`}>
-        {p.nome.trim().split(/\s+/).slice(0, 2).map((x) => x.charAt(0)).join('').toUpperCase()}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-sm font-medium">{p.nome}</p>
-          <p className="shrink-0 text-sm tabular-nums">
-            <span className="font-bold">{formatarNumero(p.quantidade)}</span>
-            {temMinimo && <span className="text-texto-3"> / {formatarNumero(p.estoque_minimo)}</span>}
-          </p>
-        </div>
-        {temMinimo && (
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-elevado" aria-hidden>
-            <div className={`h-full rounded-full ${s.barra}`}
-              style={{ width: p.situacao === 'zerado' ? 0 : `${Math.max(4, proporcaoDoMinimo(p) * 100)}%` }} />
-          </div>
-        )}
-        <p className={`mt-1 flex items-center gap-1 text-xs ${s.texto}`}>
-          <s.icone size={12} aria-hidden /> {s.rotulo}
-          {faltam > 0 && <span className="text-texto-3">· faltam {formatarNumero(faltam)} para o mínimo</span>}
-        </p>
-      </div>
-    </li>
-  )
-}
+// O que repor primeiro: o que está em falta E vende. Produto que saiu nos
+// últimos 30 dias vem antes (quem vendeu mais, primeiro); o que não gira fica
+// para o fim. Sem isso, centenas de zerados parados escondem o que importa.
+function PrecisaRepor({ repor, contagem, giro, carregando, slug, className = '' }) {
+  const [filtro, setFiltro] = useState('vende') // vende | zerado | baixo
+  const vendeu = (p) => giro.get(p.id) ?? 0
+  const vendem = repor.filter((p) => vendeu(p) > 0)
+  // sort estável: dentro do mesmo giro, mantém a ordem de urgência do resumo.
+  const lista = (filtro === 'vende' ? vendem : repor.filter((p) => p.situacao === filtro))
+    .slice().sort((a, b) => vendeu(b) - vendeu(a))
+  const filtros = [
+    ['vende', 'Vendem', vendem.length],
+    ['zerado', 'Zerados', contagem.zerado],
+    ['baixo', 'Baixos', contagem.baixo],
+  ]
+  const resto = lista.length - LIMITE_REPOR
+  const linkResto = filtro === 'vende' ? `/${slug}/produtos` : `/${slug}/produtos?filtro=${filtro}`
+  const explicacao = {
+    vende: `Em falta e com venda nos últimos ${DIAS_GIRO} dias: repor primeiro.`,
+    zerado: 'Sem nenhuma peça. Os que mais vendem aparecem primeiro.',
+    baixo: 'No estoque mínimo ou abaixo dele.',
+  }[filtro]
 
-// Mais vendidos dos últimos 7 dias: barras horizontais (uma série, cor de
-// acento), com o número escrito em cada uma.
-function MaisVendidos({ itens, carregando, className = '' }) {
-  const maior = Math.max(1, ...itens.map((i) => i.pecas))
   return (
-    <Cartao titulo="Mais vendidos da semana" className={className}
-      extra={<span className="text-xs text-texto-3">últimos 7 dias</span>}>
-      {carregando ? (
-        <p className="py-6 text-sm text-texto-3">Carregando…</p>
-      ) : itens.length === 0 ? (
-        <p className="py-6 text-center text-sm text-texto-3">Nenhuma venda nos últimos 7 dias.</p>
+    <Cartao titulo="Precisa repor" className={`flex flex-col ${className}`}
+      extra={<Link to={`/${slug}/produtos?filtro=zerado`} className="text-xs font-medium text-acento hover:underline">Ver produtos</Link>}>
+      {repor.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl bg-ok/8 px-4 py-6">
+          <CircleCheck size={22} className="shrink-0 text-ok" />
+          <div>
+            <p className="text-sm font-medium">Tudo em dia</p>
+            <p className="text-xs text-texto-3">Nenhum produto no mínimo ou zerado.</p>
+          </div>
+        </div>
       ) : (
-        <ol className="space-y-3">
-          {itens.map((i, n) => (
-            <li key={i.nome}>
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="w-4 shrink-0 text-xs text-texto-3 tabular-nums">{n + 1}º</span>
-                  <span className="truncate font-medium">{i.nome}</span>
+        <>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {filtros.map(([chave, rotulo, n]) => (
+              <button key={chave} type="button" onClick={() => setFiltro(chave)} aria-pressed={filtro === chave}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  filtro === chave ? 'border-acento bg-acento/12 text-texto' : 'border-borda-forte text-texto-2 hover:bg-elevado'}`}>
+                {rotulo}
+                <span className={`rounded-full px-1.5 tabular-nums ${filtro === chave ? 'bg-acento/20' : 'bg-elevado'}`}>
+                  {chave === 'vende' && carregando ? '…' : formatarNumero(n)}
                 </span>
-                <span className="shrink-0 tabular-nums">
-                  <strong>{formatarNumero(i.pecas)}</strong> <span className="text-xs text-texto-3">peças</span>
-                </span>
-              </div>
-              <div className="ml-6 mt-1 flex items-center gap-2">
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-elevado" aria-hidden>
-                  <div className="h-full rounded-full bg-acento transition-[width] duration-700" style={{ width: `${(i.pecas / maior) * 100}%` }} />
-                </div>
-                <span className="w-20 shrink-0 text-right text-xs text-texto-3 tabular-nums">{dinheiro(i.valor)}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
+              </button>
+            ))}
+          </div>
+          <p className="mb-3 text-xs text-texto-3">{explicacao}</p>
+
+          {carregando && filtro === 'vende' ? (
+            <p className="py-6 text-sm text-texto-3">Carregando…</p>
+          ) : lista.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-xl bg-ok/8 px-4 py-5">
+              <CircleCheck size={20} className="shrink-0 text-ok" />
+              <p className="text-sm text-texto-2">
+                {filtro === 'vende' ? `Nada do que vendeu nos últimos ${DIAS_GIRO} dias está em falta.` : 'Nenhum produto aqui.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-borda overflow-hidden rounded-xl border border-borda">
+              {lista.slice(0, LIMITE_REPOR).map((p) => <LinhaRepor key={p.id} produto={p} vendeu={vendeu(p)} />)}
+            </ul>
+          )}
+          {resto > 0 && (
+            <Link to={linkResto} className="mt-3 self-start text-xs font-medium text-texto-3 hover:text-acento">
+              e mais {formatarNumero(resto)}: ver em Produtos →
+            </Link>
+          )}
+        </>
       )}
     </Cartao>
   )
 }
 
-function useMaisVendidos(clienteId) {
-  const [estado, setEstado] = useState({ id: null, itens: [] })
+// Uma linha compacta: situação (ícone + texto), nome, quanto vendeu e o estoque.
+function LinhaRepor({ produto: p, vendeu }) {
+  const s = SITUACOES[p.situacao]
+  const temMinimo = p.estoque_minimo != null
+  const faltam = temMinimo ? Math.max(0, Number(p.estoque_minimo) - Number(p.quantidade)) : 0
+  return (
+    <li className="flex items-center gap-3 bg-fundo/40 px-3 py-2.5">
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${s.chip}`} title={s.rotulo}>
+        <s.icone size={15} aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-sm font-medium leading-snug" title={p.nome}>{p.nome}</p>
+        <p className="mt-0.5 text-xs text-texto-3">
+          <span className={s.texto}>{s.rotulo}</span>
+          {faltam > 0 && <> · faltam {formatarNumero(faltam)} p/ o mínimo</>}
+          {vendeu > 0 && <> · <span className="text-texto-2">vendeu {formatarNumero(vendeu)} em {DIAS_GIRO} dias</span></>}
+        </p>
+      </div>
+      <p className="shrink-0 text-right text-sm tabular-nums">
+        <span className={`font-bold ${p.situacao === 'zerado' ? 'text-danger' : ''}`}>{formatarNumero(p.quantidade)}</span>
+        {temMinimo && <span className="text-texto-3"> / {formatarNumero(p.estoque_minimo)}</span>}
+      </p>
+    </li>
+  )
+}
+
+// Mais vendidos da semana (últimos 7 dias) ou do mês (do dia 1 até hoje):
+// barras com o número escrito e, embaixo, quanto ainda tem no estoque (o
+// campeão de vendas zerado salta aos olhos).
+const LIMITE_MAIS_VENDIDOS = 6
+const inicioDaSemana = () => proximoDia(inicioDeHoje().getTime(), -6)
+const inicioDoMesAtual = () => { const d = inicioDeHoje(); return new Date(d.getFullYear(), d.getMonth(), 1).getTime() }
+const PERIODOS = {
+  semana: { rotulo: 'Semana', explicacao: 'últimos 7 dias', desde: inicioDaSemana, vazio: 'Nenhuma venda nos últimos 7 dias.' },
+  mes: {
+    rotulo: 'Mês', desde: inicioDoMesAtual, vazio: 'Nenhuma venda neste mês ainda.',
+    explicacao: new Date().toLocaleDateString('pt-BR', { month: 'long' }),
+  },
+}
+
+function MaisVendidos({ linhas, carregando, produtos, className = '' }) {
+  const [periodo, setPeriodo] = useState('semana')
+  const p = PERIODOS[periodo]
+  const desde = p.desde()
+  const porProduto = new Map()
+  for (const v of linhas) {
+    if (new Date(v.vendido_em).getTime() < desde) continue
+    const chave = v.produto_id ?? v.produto_nome
+    const x = porProduto.get(chave) ?? { chave, produtoId: v.produto_id, nome: v.produto_nome, pecas: 0, valor: 0 }
+    x.pecas += Number(v.quantidade)
+    x.valor += Number(v.quantidade) * Number(v.preco_unitario)
+    porProduto.set(chave, x)
+  }
+  const todos = [...porProduto.values()].sort((a, b) => b.pecas - a.pecas || b.valor - a.valor)
+  const itens = todos.slice(0, LIMITE_MAIS_VENDIDOS)
+  const maior = Math.max(1, ...itens.map((i) => i.pecas))
+  const totalPecas = todos.reduce((t, i) => t + i.pecas, 0)
+
+  return (
+    <Cartao titulo="Mais vendidos" className={`flex flex-col ${className}`}
+      extra={<span className="text-xs text-texto-3 first-letter:uppercase">{p.explicacao}</span>}>
+      {/* Semana | Mês, acima da lista */}
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-borda bg-fundo/40 p-1" role="group" aria-label="Período">
+        {Object.entries(PERIODOS).map(([chave, { rotulo }]) => (
+          <button key={chave} type="button" onClick={() => setPeriodo(chave)} aria-pressed={periodo === chave}
+            className={`rounded-lg py-1.5 text-sm font-medium transition ${
+              periodo === chave ? 'bg-acento text-sobre-acento shadow-sm' : 'text-texto-2 hover:bg-elevado hover:text-texto'}`}>
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {carregando ? (
+        <p className="py-6 text-sm text-texto-3">Carregando…</p>
+      ) : itens.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
+          <ShoppingCart size={22} className="text-texto-3" aria-hidden />
+          <p className="text-sm text-texto-3">{p.vazio}</p>
+        </div>
+      ) : (
+        <>
+          <ol className="divide-y divide-borda overflow-hidden rounded-xl border border-borda">
+            {itens.map((i, n) => {
+              const produto = i.produtoId ? produtos.get(i.produtoId) : null
+              const s = produto ? SITUACOES[produto.situacao] : null
+              return (
+                <li key={i.chave} className="flex items-center gap-3 bg-fundo/40 px-3 py-2.5">
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums ${
+                    n === 0 ? 'bg-acento text-sobre-acento' : 'bg-elevado text-texto-2'}`}>
+                    {n + 1}º
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {/* Nome quebra em até 2 linhas em vez de cortar */}
+                    <p className="line-clamp-2 text-sm font-medium leading-snug" title={i.nome}>{i.nome}</p>
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-elevado" aria-hidden>
+                      <div className="h-full rounded-full bg-acento transition-[width] duration-700" style={{ width: `${(i.pecas / maior) * 100}%` }} />
+                    </div>
+                    <p className={`mt-1 flex items-center gap-1 truncate text-xs ${s && produto.situacao !== 'ok' ? s.texto : 'text-texto-3'}`}>
+                      {s ? (
+                        <>
+                          <s.icone size={12} aria-hidden className="shrink-0" />
+                          {produto.situacao === 'zerado' ? 'Acabou no estoque' : `${formatarNumero(produto.quantidade)} no estoque`}
+                        </>
+                      ) : 'Produto removido'}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right tabular-nums">
+                    <p><strong>{formatarNumero(i.pecas)}</strong> <span className="text-xs text-texto-3">peça{i.pecas === 1 ? '' : 's'}</span></p>
+                    <p className="text-xs text-texto-3">{dinheiro(i.valor)}</p>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+          <p className="mt-auto pt-4 text-xs text-texto-3">
+            {formatarNumero(totalPecas)} peça{totalPecas === 1 ? '' : 's'} vendida{totalPecas === 1 ? '' : 's'} de {formatarNumero(todos.length)} produto{todos.length === 1 ? '' : 's'} diferente{todos.length === 1 ? '' : 's'}
+          </p>
+        </>
+      )}
+    </Cartao>
+  )
+}
+
+// Vendas recentes, numa leitura só para os dois cartões. Desde o que vier
+// antes: 30 dias atrás (giro do Precisa repor) ou o dia 1º do mês (Mês).
+//   linhas: para o Mais vendidos filtrar semana ou mês;
+//   giro:   produto_id → peças vendidas nos últimos 30 dias.
+// Lê em páginas: um mês movimentado passa do limite de 1000 linhas.
+function useVendasRecentes(clienteId) {
+  const [estado, setEstado] = useState({ id: null, linhas: [] })
   useEffect(() => {
     if (!supabaseConfigurado || !clienteId) return
     let cancelado = false
-    supabase.from('vendas').select('produto_nome, quantidade, preco_unitario')
-      .eq('cliente_id', clienteId).gte('vendido_em', new Date(proximoDia(inicioDeHoje().getTime(), -6)).toISOString())
-      .then(({ data }) => {
-        if (cancelado) return
-        const porNome = new Map()
-        for (const v of data ?? []) {
-          const x = porNome.get(v.produto_nome) ?? { nome: v.produto_nome, pecas: 0, valor: 0 }
-          x.pecas += Number(v.quantidade)
-          x.valor += Number(v.quantidade) * Number(v.preco_unitario)
-          porNome.set(v.produto_nome, x)
-        }
-        setEstado({ id: clienteId, itens: [...porNome.values()].sort((a, b) => b.pecas - a.pecas || b.valor - a.valor).slice(0, 5) })
-      })
+    const desde = new Date(Math.min(inicioDoGiro(), inicioDoMesAtual())).toISOString()
+    async function ler() {
+      const todas = []
+      for (let pagina = 0; pagina < 20; pagina++) {
+        const { data, error } = await supabase.from('vendas')
+          .select('produto_id, produto_nome, quantidade, preco_unitario, vendido_em')
+          .eq('cliente_id', clienteId).gte('vendido_em', desde)
+          .order('vendido_em').order('id').range(pagina * 1000, pagina * 1000 + 999)
+        if (error || !data) break
+        todas.push(...data)
+        if (data.length < 1000) break
+      }
+      if (!cancelado) setEstado({ id: clienteId, linhas: todas })
+    }
+    ler()
     return () => { cancelado = true }
   }, [clienteId])
-  if (!supabaseConfigurado) return { itens: [], carregando: false }
-  return { itens: estado.id === clienteId ? estado.itens : [], carregando: estado.id !== clienteId }
+
+  const linhas = !supabaseConfigurado ? vendasRecentesDeExemplo()
+    : estado.id === clienteId ? estado.linhas : []
+  const giroDesde = inicioDoGiro()
+  const giro = new Map()
+  for (const v of linhas) {
+    if (!v.produto_id || new Date(v.vendido_em).getTime() < giroDesde) continue
+    giro.set(v.produto_id, (giro.get(v.produto_id) ?? 0) + Number(v.quantidade))
+  }
+  return { linhas, giro, carregando: supabaseConfigurado && estado.id !== clienteId }
 }
+
+const inicioDoGiro = () => proximoDia(inicioDeHoje().getTime(), -(DIAS_GIRO - 1))
 
 // ── Peças ─────────────────────────────────────────────────────────────────
 
