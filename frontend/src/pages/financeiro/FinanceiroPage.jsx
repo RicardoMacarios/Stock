@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Crown, Receipt, RefreshCw, Shirt,
+  ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Crown, HandCoins, Receipt, RefreshCw, Shirt,
   TrendingUp, TriangleAlert,
 } from 'lucide-react'
 import { supabaseConfigurado } from '@/lib/supabase'
@@ -10,7 +10,7 @@ import { totaisDasVendas, useVendedores } from '@/pages/vendas/dados'
 import GraficoDoMes from './GraficoDoMes'
 import DiasDaSemana from './DiasDaSemana'
 import {
-  diasDecorridos, inicioDoMes, maisVendidos, mediaPorDiaDaSemana, mesmoPeriodo, rankingDeVendedores, somarMeses, useVendasDoMes, variacao, vendasPorDia,
+  diasDecorridos, inicioDoMes, maisVendidos, mediaPorDiaDaSemana, mesmoPeriodo, rankingDeVendedores, somarMeses, useAReceber, useVendasDoMes, variacao, vendasPorDia,
 } from './dados'
 
 // Financeiro (/:slug/financeiro): o mês inteiro de uma vez — quanto vendeu,
@@ -25,6 +25,7 @@ export default function FinanceiroPage({ children }) {
   const mesEfetivo = Math.min(mes, atual) // virou o mês com a tela aberta
   const { vendas, anterior, erro, carregando, recarregar } = useVendasDoMes(cliente?.id, mesEfetivo)
   const { vendedores } = useVendedores(cliente?.id)
+  const aReceber = useAReceber(cliente?.id)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -38,7 +39,7 @@ export default function FinanceiroPage({ children }) {
 
       {erro ? <Erro recarregar={recarregar} />
         : carregando ? <Esqueleto />
-          : <Conteudo vendas={vendas} anterior={anterior} vendedores={vendedores} mes={mesEfetivo} ehAtual={mesEfetivo === atual} />}
+          : <Conteudo vendas={vendas} anterior={anterior} vendedores={vendedores} mes={mesEfetivo} ehAtual={mesEfetivo === atual} aReceber={aReceber} />}
 
       {children}
     </div>
@@ -70,7 +71,7 @@ function Cabecalho({ mes, atual, setMes }) {
   )
 }
 
-function Conteudo({ vendas, anterior, vendedores, mes, ehAtual }) {
+function Conteudo({ vendas, anterior, vendedores, mes, ehAtual, aReceber }) {
   const t = totaisDasVendas(vendas)
   // Mês em andamento compara com o mesmo pedaço do mês anterior.
   const a = totaisDasVendas(ehAtual ? mesmoPeriodo(anterior, mes) : anterior)
@@ -87,9 +88,19 @@ function Conteudo({ vendas, anterior, vendedores, mes, ehAtual }) {
     <>
       {/* Faixa principal: faturamento e lucro grandes, com a comparação */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Destaque rotulo="Vendido no mês" icone={Banknote} valor={dinheiro(t.valor)}
+        {/* Conta o que entrou no caixa: valor em aberto só entra quando o cliente paga. */}
+        <Destaque rotulo="Entrou no caixa no mês" icone={Banknote} valor={dinheiro(t.valor)}
           delta={variacao(t.valor, a.valor)} comparado={comparado}
-          rodape={`${fmtQtd(t.vendas)} venda${t.vendas === 1 ? '' : 's'} · ${fmtQtd(t.pecas)} peça${t.pecas === 1 ? '' : 's'}`} />
+          rodape={
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{fmtQtd(t.vendas)} venda{t.vendas === 1 ? '' : 's'} · {fmtQtd(t.pecas)} peça{t.pecas === 1 ? '' : 's'}</span>
+              {aReceber > 0 && (
+                <span className="flex items-center gap-1 text-warn">
+                  <HandCoins size={12} aria-hidden /> {dinheiro(aReceber)} a receber dos clientes
+                </span>
+              )}
+            </span>
+          } />
         <Destaque rotulo="Lucro do mês" icone={TrendingUp} valor={dinheiro(t.lucro)} forte
           delta={variacao(t.lucro, a.lucro)} comparado={comparado}
           rodape={

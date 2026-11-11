@@ -110,6 +110,11 @@ const VENDAS_EXEMPLO = (() => {
     .filter((v) => new Date(v.vendido_em) <= hoje)
 })()
 
+// Valor de uma linha. Linha de ajuste (`ajuste: true`, só no Financeiro):
+// valor que ficou em aberto (negativo) ou que foi recebido depois (positivo),
+// sem peças. Ver financeiro/dados.js.
+export const receitaDe = (v) => (v.ajuste ? Number(v.valor) : Number(v.quantidade) * Number(v.preco_unitario))
+
 // Totais de uma lista de vendas. Lucro só conta vendas com custo conhecido;
 // `semCusto` diz quantas ficaram de fora, para a tela avisar.
 export function totaisDasVendas(vendas) {
@@ -117,7 +122,12 @@ export function totaisDasVendas(vendas) {
   let valor = 0
   let lucro = 0
   let semCusto = 0
+  let linhas = 0
+  const pedidos = new Set()
   for (const v of vendas) {
+    if (v.ajuste) { valor += v.valor; lucro += v.lucro; continue }
+    linhas += 1
+    pedidos.add(v.pedido_id ?? v.id)
     const qtd = Number(v.quantidade)
     const receita = qtd * Number(v.preco_unitario)
     pecas += qtd
@@ -126,8 +136,7 @@ export function totaisDasVendas(vendas) {
     else lucro += receita - qtd * Number(v.custo_unitario)
   }
   // "Vendas" = compras (pedidos); uma compra pode ter várias peças/linhas.
-  const pedidos = new Set(vendas.map((v) => v.pedido_id ?? v.id)).size
-  return { pecas, valor, lucro, semCusto, vendas: pedidos, linhas: vendas.length }
+  return { pecas, valor, lucro, semCusto, vendas: pedidos.size, linhas }
 }
 
 // Linhas da mesma compra juntas, da mais recente para a mais antiga.

@@ -126,6 +126,11 @@ export function CartaoCliente({ cliente: c, trocar, acoes }) {
         {acoes}
       </div>
       {c.observacoes && <p className="mt-3 rounded-lg bg-elevado/60 px-3 py-2 text-xs text-texto-2">{c.observacoes}</p>}
+      {Number(c.em_aberto) > 0 && (
+        <p className="mt-3 rounded-lg bg-warn/10 px-3 py-2 text-xs font-medium text-warn">
+          Tem {dinheiro(c.em_aberto)} em aberto de compras anteriores (recebe pela ficha, em Clientes).
+        </p>
+      )}
       {temResumo && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <MiniNumero rotulo="Já gastou" valor={dinheiro(c.gasto)} />

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Banknote, CalendarDays, Pencil, Plus, Search, ShoppingBag, Shirt, Users } from 'lucide-react'
+import { Banknote, CalendarDays, HandCoins, Pencil, Plus, Search, ShoppingBag, Shirt, Users } from 'lucide-react'
+import SeletorDePagamento from '@/components/vendas/SeletorDePagamento'
+import { rotuloPagamento } from '@/lib/pagamento'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
 import { classeEntrada } from '@/lib/classes'
-import { dinheiro, quantidade as fmtQtd } from '@/lib/formato'
+import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import Painel from '@/components/ui/Painel'
 import { Avatar, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
 import { CLIENTE_VAZIO, filtrarClientes, salvarCliente, useClientesDaLoja } from './dados'
@@ -38,6 +40,7 @@ export default function ClientesPage({ children }) {
     total: clientes.lista.length,
     gasto: clientes.lista.reduce((s, c) => s + Number(c.gasto), 0),
     comCondicional: clientes.lista.filter((c) => Number(c.condicionais_abertos) > 0).length,
+    emAberto: clientes.lista.reduce((s, c) => s + Number(c.em_aberto ?? 0), 0),
   }), [clientes.lista])
 
   if (!supabaseConfigurado) return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
@@ -58,11 +61,11 @@ export default function ClientesPage({ children }) {
         </button>
       </header>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Numero icone={Users} rotulo="Clientes" valor={fmtQtd(resumo.total)} />
         <Numero icone={Banknote} rotulo="Já gastaram na loja" valor={dinheiro(resumo.gasto)} />
-        <Numero icone={ShoppingBag} rotulo="Com condicional em aberto" valor={fmtQtd(resumo.comCondicional)}
-          className="col-span-2 lg:col-span-1" />
+        <Numero icone={ShoppingBag} rotulo="Com condicional em aberto" valor={fmtQtd(resumo.comCondicional)} />
+        <Numero icone={HandCoins} rotulo="Valor em aberto (a receber)" valor={dinheiro(resumo.emAberto)} />
       </div>
 
       <section className="rounded-2xl border border-borda bg-card">
@@ -104,6 +107,11 @@ export default function ClientesPage({ children }) {
                       {Number(c.condicionais_abertos) > 0 && (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn/12 px-1.5 py-0.5 text-[0.65rem] font-semibold text-warn">
                           <ShoppingBag size={10} /> condicional
+                        </span>
+                      )}
+                      {Number(c.em_aberto) > 0 && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger/12 px-1.5 py-0.5 text-[0.65rem] font-semibold text-danger">
+                          <HandCoins size={10} /> deve {dinheiro(c.em_aberto)}
                         </span>
                       )}
                     </p>
@@ -187,7 +195,8 @@ function NovoCliente({ clienteId, fechar, salvo }) {
 function Ficha({ cliente: c, clienteId, fechar, mudou }) {
   const [editando, setEditando] = useState(null) // campos em edição
   const [salvando, setSalvando] = useState(false)
-  const historico = useHistorico(c.id)
+  const [versao, setVersao] = useState(0) // relê o histórico depois de receber
+  const historico = useHistorico(c.id, versao)
 
   async function salvar() {
     if (!editando.nome.trim()) return toast.error('Informe o nome do cliente.')
@@ -216,7 +225,7 @@ function Ficha({ cliente: c, clienteId, fechar, mudou }) {
         <FormCliente valor={editando} mudar={setEditando} />
       ) : (
         <>
-          <CartaoCliente cliente={{ ...c, gasto: undefined }} acoes={
+          <CartaoCliente cliente={{ ...c, gasto: undefined, em_aberto: undefined }} acoes={
             <button type="button" onClick={() => setEditando({
               nome: c.nome, telefone: c.telefone ?? '', rua: c.rua ?? '', numero: c.numero ?? '', bairro: c.bairro ?? '',
               observacoes: c.observacoes ?? '',
@@ -225,6 +234,11 @@ function Ficha({ cliente: c, clienteId, fechar, mudou }) {
               <Pencil size={15} />
             </button>
           } />
+
+          {/* Valor em aberto + receber */}
+          {Number(c.em_aberto) > 0 && (
+            <EmAberto cliente={c} contas={historico.contas} recebeu={() => { mudou(); setVersao((v) => v + 1) }} />
+          )}
 
           {/* Números da ficha */}
           <div className="grid grid-cols-2 gap-3">
@@ -278,6 +292,13 @@ function Ficha({ cliente: c, clienteId, fechar, mudou }) {
                       <span className="text-sm font-medium">{new Date(p.vendido_em).toLocaleDateString('pt-BR')}</span>
                       <span className="font-semibold tabular-nums">{dinheiro(p.total)}</span>
                     </div>
+                    {p.conta && (
+                      <p className={`mt-0.5 text-xs font-medium ${p.conta.quitado_em ? 'text-texto-3' : 'text-danger'}`}>
+                        {p.conta.quitado_em
+                          ? `tinha ${dinheiro(p.conta.valor_aberto)} em aberto · pago`
+                          : `falta ${dinheiro(Number(p.conta.valor_aberto) - Number(p.conta.valor_recebido))} de ${dinheiro(p.conta.valor_aberto)} em aberto`}
+                      </p>
+                    )}
                     <ul className="mt-1 space-y-0.5 text-xs text-texto-2">
                       {p.itens.map((i) => <li key={i.id} className="truncate">{fmtQtd(i.quantidade)}× {i.produto_nome}</li>)}
                     </ul>
@@ -307,9 +328,89 @@ const fmtDia = (dia) => {
   return new Date(a, m - 1, d).toLocaleDateString('pt-BR')
 }
 
-// Compras (agrupadas por pedido) e condicionais do cliente.
-function useHistorico(pessoaId) {
-  const [estado, setEstado] = useState({ id: null, compras: [], condicionais: [] })
+// ── Valor em aberto ───────────────────────────────────────────────────────
+// Quanto o cliente deve, de quais compras, e o "Receber": valor (o total já
+// vem preenchido; pode ser só uma parte) + forma. Abate das compras mais
+// antigas primeiro.
+
+function EmAberto({ cliente: c, contas, recebeu }) {
+  const [abrindo, setAbrindo] = useState(false)
+  const [valor, setValor] = useState('')
+  const [forma, setForma] = useState(null)
+  const [enviando, setEnviando] = useState(false)
+  const abertas = contas.filter((k) => !k.quitado_em)
+  const saldo = Number(c.em_aberto)
+
+  async function receber() {
+    const n = lerNumero(valor)
+    if (n === null || Number.isNaN(n) || n <= 0) return toast.error('Informe quanto ele está pagando.')
+    if (Math.round(n * 100) > Math.round(saldo * 100)) return toast.error(`O máximo é ${dinheiro(saldo)}.`)
+    if (!forma) return toast.error('Escolha a forma de pagamento.')
+    setEnviando(true)
+    const { data: falta, error } = await supabase.rpc('receber_em_aberto', { p_cliente_loja_id: c.id, p_valor: n, p_forma_pagamento: forma })
+    setEnviando(false)
+    if (error) return toast.error(traduzirErro(error))
+    toast.success(`Recebido ${dinheiro(n)} (${rotuloPagamento(forma)}). ${Number(falta) > 0 ? `Ainda falta ${dinheiro(falta)}.` : 'Tudo pago!'}`)
+    setAbrindo(false)
+    setValor('')
+    setForma(null)
+    recebeu()
+  }
+
+  return (
+    <div className="rounded-2xl border border-danger/40 bg-danger/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-sm text-texto-2"><HandCoins size={16} className="text-danger" /> Em aberto</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{dinheiro(saldo)}</p>
+        </div>
+        {!abrindo && (
+          <button type="button" onClick={() => { setAbrindo(true); setValor(paraCampo(saldo)) }}
+            className="rounded-xl bg-acento px-4 py-2.5 text-sm font-semibold text-sobre-acento transition hover:brightness-110">
+            Receber
+          </button>
+        )}
+      </div>
+
+      {abertas.length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs text-texto-2">
+          {abertas.map((k) => (
+            <li key={k.id} className="flex justify-between gap-3">
+              <span>Compra de {new Date(k.criado_em).toLocaleDateString('pt-BR')} ({dinheiro(k.valor_total)})</span>
+              <span className="shrink-0 tabular-nums">falta {dinheiro(Number(k.valor_aberto) - Number(k.valor_recebido))}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {abrindo && (
+        <div className="mt-4 space-y-3 border-t border-danger/20 pt-4">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-texto-2">Está pagando</span>
+            <span className="flex h-10 items-center rounded-lg border border-borda-forte bg-fundo px-2 focus-within:border-acento">
+              <span className="text-xs text-texto-3">R$</span>
+              <input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} autoFocus
+                aria-label="Valor recebido" className="w-24 bg-transparent pl-1 text-right tabular-nums outline-none" />
+            </span>
+          </label>
+          <SeletorDePagamento valor={forma} aoMudar={setForma} />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setAbrindo(false)} className="flex-1 rounded-xl border border-borda-forte py-2.5 text-sm text-texto-2 hover:bg-elevado">Cancelar</button>
+            <button type="button" onClick={receber} disabled={enviando}
+              className="flex-[2] rounded-xl bg-acento py-2.5 text-sm font-semibold text-sobre-acento disabled:opacity-60">
+              {enviando ? 'Registrando…' : 'Confirmar recebimento'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Compras (agrupadas por pedido), condicionais e valores em aberto do cliente.
+function useHistorico(pessoaId, versao = 0) {
+  const [estado, setEstado] = useState({ chave: null, compras: [], condicionais: [], contas: [] })
+  const chave = `${pessoaId}:${versao}`
 
   useEffect(() => {
     let cancelado = false
@@ -318,7 +419,9 @@ function useHistorico(pessoaId) {
         .eq('cliente_loja_id', pessoaId).order('vendido_em', { ascending: false }).limit(300),
       supabase.from('condicionais').select('id, saiu_em, situacao, itens:condicional_itens(quantidade, comprado, produto_nome)')
         .eq('cliente_loja_id', pessoaId).order('saiu_em', { ascending: false }),
-    ]).then(([v, k]) => {
+      supabase.from('contas_receber').select('id, pedido_id, valor_total, valor_aberto, valor_recebido, criado_em, quitado_em')
+        .eq('cliente_loja_id', pessoaId).order('criado_em', { ascending: true }),
+    ]).then(([v, k, r]) => {
       if (cancelado) return
       const porPedido = new Map()
       for (const linha of v.data ?? []) {
@@ -327,10 +430,16 @@ function useHistorico(pessoaId) {
         p.total += Number(linha.quantidade) * Number(linha.preco_unitario)
         porPedido.set(linha.pedido_id, p)
       }
-      setEstado({ id: pessoaId, compras: [...porPedido.values()], condicionais: k.data ?? [] })
+      const contas = r.data ?? []
+      const contaDoPedido = new Map(contas.map((x) => [x.pedido_id, x]))
+      const compras = [...porPedido.values()].map((p) => ({ ...p, conta: contaDoPedido.get(p.id) ?? null }))
+      setEstado({ chave, compras, condicionais: k.data ?? [], contas })
     })
     return () => { cancelado = true }
-  }, [pessoaId])
+  }, [pessoaId, chave])
 
-  return estado.id === pessoaId ? { ...estado, carregando: false } : { compras: [], condicionais: [], carregando: true }
+  // Releitura (depois de receber) mantém o que já está na tela.
+  return estado.chave?.startsWith(`${pessoaId}:`)
+    ? { ...estado, carregando: false }
+    : { compras: [], condicionais: [], contas: [], carregando: true }
 }

@@ -56,7 +56,7 @@ export async function salvarCliente(clienteId, campos, id) {
     : supabase.from('clientes_loja').insert({ ...valores, cliente_id: clienteId })
   const { data, error } = await consulta.select('id, nome, telefone, rua, numero, bairro, endereco, observacoes, criado_em').single()
   if (error) return { error }
-  return { data: { gasto: 0, pecas: 0, compras: 0, ultima_compra: null, condicionais_abertos: 0, ...data } }
+  return { data: { gasto: 0, pecas: 0, compras: 0, ultima_compra: null, condicionais_abertos: 0, em_aberto: 0, ...data } }
 }
 
 export const CLIENTE_VAZIO = { nome: '', telefone: '', rua: '', numero: '', bairro: '', observacoes: '' }

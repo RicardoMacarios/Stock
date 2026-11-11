@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
-import { COR_SEM_VENDEDOR, corDoVendedor, totaisDasVendas } from '@/pages/vendas/dados'
+import { COR_SEM_VENDEDOR, corDoVendedor, receitaDe, totaisDasVendas } from '@/pages/vendas/dados'
 
 // Dados e contas da tela Financeiro (um mês por vez).
 // .js de propósito: o registro de clientes só indexa .jsx como página.
@@ -37,6 +37,59 @@ async function lerVendas(clienteId, de, ate) {
   }
 }
 
+// ── Valor em aberto ───────────────────────────────────────────────────────
+// O Financeiro conta o que ENTROU NO CAIXA. Venda de R$ 90 com R$ 50 em
+// aberto: no dia da venda entra uma linha de ajuste de −50; no dia em que o
+// cliente paga, +50. O lucro segue a mesma proporção (lucro_aberto).
+// Linhas de ajuste: { ajuste: true, valor, lucro, quantidade: 0, vendido_em, vendedor }.
+
+async function lerAjustes(clienteId, de, ate) {
+  const desde = new Date(de).toISOString()
+  const antes = new Date(ate).toISOString()
+  const [contas, recebidos] = await Promise.all([
+    supabase.from('contas_receber').select('id, valor_aberto, lucro_aberto, vendedor_id, vendedor_nome, criado_em')
+      .eq('cliente_id', clienteId).gte('criado_em', desde).lt('criado_em', antes),
+    supabase.from('recebimentos')
+      .select('id, valor, recebido_em, conta:contas_receber(valor_aberto, lucro_aberto, vendedor_id, vendedor_nome)')
+      .eq('cliente_id', clienteId).gte('recebido_em', desde).lt('recebido_em', antes),
+  ])
+  if (contas.error) throw contas.error
+  if (recebidos.error) throw recebidos.error
+  const proporcao = (c) => (c?.lucro_aberto == null ? 0 : Number(c.lucro_aberto) / Number(c.valor_aberto))
+  return [
+    ...contas.data.map((c) => ({
+      id: `aberto-${c.id}`, ajuste: true, quantidade: 0, valor: -Number(c.valor_aberto), lucro: -Number(c.lucro_aberto ?? 0),
+      vendido_em: c.criado_em, vendedor_id: c.vendedor_id, vendedor_nome: c.vendedor_nome,
+    })),
+    ...recebidos.data.map((r) => ({
+      id: `recebido-${r.id}`, ajuste: true, quantidade: 0, valor: Number(r.valor), lucro: Number(r.valor) * proporcao(r.conta),
+      vendido_em: r.recebido_em, vendedor_id: r.conta?.vendedor_id ?? null, vendedor_nome: r.conta?.vendedor_nome ?? null,
+    })),
+  ]
+}
+
+// Vendas + ajustes de [de, ate), em ordem de horário.
+async function lerMovimento(clienteId, de, ate) {
+  const [vendas, ajustes] = await Promise.all([lerVendas(clienteId, de, ate), lerAjustes(clienteId, de, ate)])
+  return [...vendas, ...ajustes].sort((a, b) => new Date(a.vendido_em) - new Date(b.vendido_em))
+}
+
+// Quanto os clientes devem hoje (todas as compras com valor em aberto).
+export function useAReceber(clienteId) {
+  const [estado, setEstado] = useState({ clienteId: null, valor: 0 })
+  useEffect(() => {
+    if (!supabaseConfigurado || !clienteId) return
+    let cancelado = false
+    supabase.from('contas_receber').select('valor_aberto, valor_recebido').eq('cliente_id', clienteId).is('quitado_em', null)
+      .then(({ data }) => {
+        if (cancelado) return
+        setEstado({ clienteId, valor: (data ?? []).reduce((s, c) => s + Number(c.valor_aberto) - Number(c.valor_recebido), 0) })
+      })
+    return () => { cancelado = true }
+  }, [clienteId])
+  return estado.clienteId === clienteId ? estado.valor : 0
+}
+
 // Vendas do mês e do mês anterior (para comparar).
 export function useVendasDoMes(clienteId, mes) {
   const [estado, setEstado] = useState({ chave: null, mes: [], anterior: [], erro: false })
@@ -47,8 +100,8 @@ export function useVendasDoMes(clienteId, mes) {
     if (!supabaseConfigurado || !clienteId) return
     let cancelado = false
     Promise.all([
-      lerVendas(clienteId, mes, somarMeses(mes, 1)),
-      lerVendas(clienteId, somarMeses(mes, -1), mes),
+      lerMovimento(clienteId, mes, somarMeses(mes, 1)),
+      lerMovimento(clienteId, somarMeses(mes, -1), mes),
     ])
       .then(([doMes, anterior]) => { if (!cancelado) setEstado({ chave, mes: doMes, anterior, erro: false }) })
       .catch(() => { if (!cancelado) setEstado({ chave, mes: [], anterior: [], erro: true }) })
@@ -71,6 +124,7 @@ export function vendasPorDia(vendas, mes) {
   const dias = Array.from({ length: diasNoMes(mes) }, (_, i) => ({ dia: i + 1, valor: 0, lucro: 0, pecas: 0, pedidos: new Set() }))
   for (const v of vendas) {
     const d = dias[new Date(v.vendido_em).getDate() - 1]
+    if (v.ajuste) { d.valor += v.valor; d.lucro += v.lucro; continue }
     const qtd = Number(v.quantidade)
     const receita = qtd * Number(v.preco_unitario)
     d.valor += receita
@@ -142,7 +196,7 @@ export function vendasPorDiaEVendedor(vendas, mes, vendedores) {
     const d = dias[new Date(v.vendido_em).getDate() - 1]
     const id = v.vendedor_id ?? 'sem'
     const qtd = Number(v.quantidade)
-    const receita = qtd * Number(v.preco_unitario)
+    const receita = receitaDe(v)
     const p = (d.por[id] ??= { valor: 0, pecas: 0 })
     p.valor += receita
     p.pecas += qtd
@@ -155,6 +209,7 @@ export function vendasPorDiaEVendedor(vendas, mes, vendedores) {
 export function maisVendidos(vendas, limite = 5) {
   const porNome = new Map()
   for (const v of vendas) {
+    if (v.ajuste) continue
     const x = porNome.get(v.produto_nome) ?? { nome: v.produto_nome, pecas: 0, valor: 0 }
     x.pecas += Number(v.quantidade)
     x.valor += Number(v.quantidade) * Number(v.preco_unitario)
