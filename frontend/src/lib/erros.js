@@ -25,6 +25,8 @@ const MENSAGENS = {
   valor_pago_invalido: 'Valor pago inválido: tem de ser maior que zero e não passar do total.',
   em_aberto_sem_cliente: 'Para deixar valor em aberto, escolha o cliente da compra.',
   valor_maior_que_em_aberto: 'O valor é maior do que o cliente tem em aberto.',
+  venda_com_valor_em_aberto: 'Esta venda tem valor em aberto: as peças não podem ser alteradas. Desfaça e lance de novo.',
+  venda_sem_pecas: 'Para tirar todas as peças, use "Desfazer" na venda.',
   venda_com_recebimento: 'Esta venda já teve pagamento do valor em aberto; não dá para desfazer.',
   cliente_loja_nao_encontrado: 'Cliente não encontrado. Escolha ou cadastre de novo.',
   condicional_nao_encontrado: 'Condicional não encontrado. Atualize a página.',

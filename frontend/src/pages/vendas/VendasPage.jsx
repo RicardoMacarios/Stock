@@ -1,35 +1,46 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Check, HandCoins, Undo2, UserPlus, UserRound } from 'lucide-react'
+import { Check, HandCoins, Pencil, Undo2, UserPlus, UserRound } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
 import { useCliente } from '@/context/useCliente'
 import { traduzirErro } from '@/lib/erros'
-import { dinheiro, horaCurta, lerNumero, quantidade as fmtQtd } from '@/lib/formato'
+import { dinheiro, horaCurta, inicioDeHoje, lerNumero, quantidade as fmtQtd } from '@/lib/formato'
 import { useCarrinho } from '@/hooks/useCarrinho'
 import { useProdutos } from '@/hooks/useProdutos'
 import { aplicarDesconto, lerPercentual, totalComDesconto } from '@/lib/desconto'
+import SeletorDeDia from '@/components/ui/SeletorDeDia'
 import CampoDeBipe from '@/components/vendas/CampoDeBipe'
 import ListaDePecas from '@/components/vendas/ListaDePecas'
 import Passo from '@/components/vendas/Passo'
 import SeletorDeVendedor from '@/components/vendas/SeletorDeVendedor'
 import SeletorDePagamento from '@/components/vendas/SeletorDePagamento'
 import CondicionalNaVenda from '@/components/vendas/CondicionalNaVenda'
+import EditarVenda from '@/components/vendas/EditarVenda'
 import { rotuloPagamento } from '@/lib/pagamento'
 import { totaisDoCondicional, useCondicionais } from '@/pages/condicional/dados'
 import { BuscaCliente, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
 import { CLIENTE_VAZIO, salvarCliente, useClientesDaLoja } from '@/pages/clientes/dados'
-import { agruparPedidos, corDoVendedor, totaisDasVendas, useVendasDeHoje, useVendedores } from './dados'
+import { agruparPedidos, corDoVendedor, proximoDia, totaisDasVendas, useVendasDeHoje, useVendasDoDia, useVendedores } from './dados'
 
 // /:slug/vendas — o caixa. Escolhe o vendedor, bipa as peças (pistola ou
 // câmera) num carrinho e finaliza: o banco grava tudo de uma vez e baixa o
-// estoque (registrar_pedido: tudo ou nada). Ao lado, as vendas de hoje.
+// estoque (registrar_pedido: tudo ou nada). Ao lado, as vendas do dia: abre
+// em hoje e dá para voltar a ontem (ou qualquer dia) para conferir e desfazer.
 // `children` deixa um cliente acrescentar algo sem copiar a tela.
 export default function VendasPage({ children }) {
   const { cliente, slug, ehDono } = useCliente()
   const clienteId = cliente?.id
   const { vendedores } = useVendedores(clienteId)
   const hoje = useVendasDeHoje(clienteId)
+  // Dia do painel da direita. Em "hoje" usa a mesma leitura do topo; outro
+  // dia lê à parte (clienteId null = não lê nada).
+  const meiaNoite = inicioDeHoje().getTime()
+  const [dia, setDia] = useState(meiaNoite)
+  const diaEfetivo = Math.min(dia, meiaNoite) // virou o dia com a tela aberta
+  const ehHoje = diaEfetivo === meiaNoite
+  const outroDia = useVendasDoDia(ehHoje ? null : clienteId, diaEfetivo)
+  const doDia = ehHoje ? hoje : outroDia
   // Lista guardada no navegador: abre na hora e busca só o que mudou.
   const { produtos, recarregar: carregarProdutos } = useProdutos(clienteId)
 
@@ -37,7 +48,9 @@ export default function VendasPage({ children }) {
     return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
   }
 
-  const atualizar = () => { hoje.recarregar(); carregarProdutos() }
+  const atualizar = () => { hoje.recarregar(); if (!ehHoje) outroDia.recarregar(); carregarProdutos() }
+  // Venda nova é sempre de hoje: o painel volta para hoje para ela aparecer.
+  const finalizou = () => { setDia(meiaNoite); atualizar() }
   const totais = totaisDasVendas(hoje.vendas)
   const data = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -57,10 +70,10 @@ export default function VendasPage({ children }) {
       <div className="grid gap-4 lg:grid-cols-5 lg:items-start lg:gap-6">
         <div className="lg:col-span-3">
           <Caixa clienteId={clienteId} produtos={produtos} vendedores={vendedores.filter((v) => v.ativo)} todosVendedores={vendedores}
-            slug={slug} ehDono={ehDono} finalizou={atualizar} />
+            slug={slug} ehDono={ehDono} finalizou={finalizou} />
         </div>
         <div className="lg:col-span-2">
-          <VendasDeHoje {...hoje} vendedores={vendedores} desfez={atualizar} />
+          <VendasDoDia {...doDia} dia={diaEfetivo} hoje={meiaNoite} setDia={setDia} vendedores={vendedores} desfez={atualizar} />
         </div>
       </div>
       {children}
@@ -347,11 +360,16 @@ function ClienteDaCompra({ clienteId, pessoa, setPessoa }) {
   )
 }
 
-// ── Vendas de hoje ────────────────────────────────────────────────────────
+// ── Vendas do dia ─────────────────────────────────────────────────────────
 
-function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
+function VendasDoDia({ vendas, carregando, erro, dia, hoje, setDia, vendedores, desfez }) {
   const [confirmando, setConfirmando] = useState(null)
+  const [editando, setEditando] = useState(null) // pedido aberto no painel de edição
   const pedidos = agruparPedidos(vendas)
+  const totais = totaisDasVendas(vendas)
+  const ehHoje = dia === hoje
+  const nome = ehHoje ? 'hoje' : dia === proximoDia(hoje, -1) ? 'ontem'
+    : new Date(dia).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   async function desfazer(id) {
     const { error } = await supabase.rpc('desfazer_pedido', { p_pedido_id: id })
@@ -363,15 +381,24 @@ function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
 
   return (
     <section className="rounded-2xl border border-borda bg-card p-4 md:p-5">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-semibold">Vendas de hoje</h2>
-        <span className="text-xs text-texto-3">{pedidos.length} venda{pedidos.length === 1 ? '' : 's'}</span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-semibold">Vendas {ehHoje || nome === 'ontem' ? `de ${nome}` : 'do dia'}</h2>
+          <p className="text-xs text-texto-3 first-letter:uppercase">
+            {!ehHoje && nome !== 'ontem' && <>{nome} · </>}
+            {pedidos.length} venda{pedidos.length === 1 ? '' : 's'}
+            {pedidos.length > 0 && <> · {dinheiro(totais.valor)}</>}
+          </p>
+        </div>
+        <SeletorDeDia dia={dia} hoje={hoje} setDia={setDia} />
       </div>
 
       {carregando ? (
         <p className="py-8 text-sm text-texto-3">Carregando…</p>
+      ) : erro ? (
+        <p className="py-8 text-center text-sm text-danger">Não foi possível carregar as vendas desse dia.</p>
       ) : pedidos.length === 0 ? (
-        <p className="py-8 text-center text-sm text-texto-3">Nenhuma venda hoje ainda.</p>
+        <p className="py-8 text-center text-sm text-texto-3">{ehHoje ? 'Nenhuma venda hoje ainda.' : 'Nenhuma venda nesse dia.'}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {pedidos.map((p) => {
@@ -405,7 +432,10 @@ function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
                     <button onClick={() => setConfirmando(null)} className="text-texto-3 hover:text-texto">Não</button>
                   </div>
                 ) : (
-                  <div className="mt-1 flex justify-end">
+                  <div className="mt-1 flex justify-end gap-4">
+                    <button onClick={() => setEditando(p)} className="inline-flex items-center gap-1 text-xs text-texto-3 hover:text-texto">
+                      <Pencil size={12} /> Editar
+                    </button>
                     <button onClick={() => setConfirmando(p.id)} className="inline-flex items-center gap-1 text-xs text-texto-3 hover:text-texto">
                       <Undo2 size={12} /> Desfazer
                     </button>
@@ -415,6 +445,11 @@ function VendasDeHoje({ vendas, carregando, vendedores, desfez }) {
             )
           })}
         </ul>
+      )}
+
+      {editando && (
+        <EditarVenda pedido={editando} vendedores={vendedores} fechar={() => setEditando(null)}
+          salvou={() => { setEditando(null); desfez() }} />
       )}
     </section>
   )
