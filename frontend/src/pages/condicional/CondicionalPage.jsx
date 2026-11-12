@@ -16,6 +16,8 @@ import Painel from '@/components/ui/Painel'
 import { Avatar, BuscaCliente, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
 import { CLIENTE_VAZIO, salvarCliente, useClientesDaLoja } from '@/pages/clientes/dados'
 import { corDoVendedor, useVendedores } from '@/pages/vendas/dados'
+import { formatarTelefone } from '@/lib/telefone'
+import NumeroResumo from '@/components/ui/NumeroResumo'
 import {
   dataCurta, diaLocal, diasEntre, prazo, somarDias, totaisDoCondicional, useCondicionais,
 } from './dados'
@@ -58,7 +60,9 @@ export default function CondicionalPage({ children }) {
 
   const lista = (aba === 'aberto' ? abertos : fechados).lista.filter((c) => {
     const q = busca.trim().toLowerCase()
-    return !q || c.cliente?.nome.toLowerCase().includes(q) || c.cliente?.telefone?.includes(q)
+    const digitos = q.replace(/\D/g, '')
+    return !q || c.cliente?.nome.toLowerCase().includes(q) ||
+      (digitos.length >= 3 && c.cliente?.telefone?.replace(/\D/g, '').includes(digitos))
   })
 
   if (!supabaseConfigurado) return <p className="text-sm text-texto-3">Banco não configurado (frontend/.env).</p>
@@ -79,10 +83,10 @@ export default function CondicionalPage({ children }) {
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <Numero icone={ShoppingBag} rotulo="Em aberto" valor={fmtQtd(resumo.abertos)} />
-        <Numero icone={Shirt} rotulo="Peças com clientes" valor={fmtQtd(resumo.pecas)} />
-        <Numero icone={Banknote} rotulo="Valor fora da loja" valor={dinheiro(resumo.valor)} />
-        <Numero icone={AlarmClock} rotulo="Atrasados" valor={fmtQtd(resumo.atrasados)}
+        <NumeroResumo icone={ShoppingBag} rotulo="Em aberto" valor={fmtQtd(resumo.abertos)} />
+        <NumeroResumo icone={Shirt} rotulo="Peças com clientes" valor={fmtQtd(resumo.pecas)} />
+        <NumeroResumo icone={Banknote} rotulo="Valor fora da loja" valor={dinheiro(resumo.valor)} />
+        <NumeroResumo icone={AlarmClock} rotulo="Atrasados" valor={fmtQtd(resumo.atrasados)}
           chip={resumo.atrasados ? 'bg-danger/12 text-danger' : undefined} />
       </div>
 
@@ -140,17 +144,6 @@ export default function CondicionalPage({ children }) {
   )
 }
 
-function Numero({ icone: Icone, rotulo, valor, chip = 'bg-acento/12 text-acento' }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-borda bg-card p-4">
-      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${chip}`}><Icone size={19} aria-hidden /></span>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-texto-3">{rotulo}</p>
-        <p className="truncate text-lg font-bold tabular-nums">{valor}</p>
-      </div>
-    </div>
-  )
-}
 
 // ── Cartão da lista ───────────────────────────────────────────────────────
 
@@ -170,7 +163,7 @@ function CartaoCondicional({ cond: c, hoje, vendedores, abrir }) {
           <Avatar nome={c.cliente?.nome} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{c.cliente?.nome ?? 'Cliente'}</p>
-            {c.cliente?.telefone && <p className="truncate text-xs text-texto-3">{c.cliente.telefone}</p>}
+            {c.cliente?.telefone && <p className="truncate text-xs text-texto-3 tabular-nums">{formatarTelefone(c.cliente.telefone)}</p>}
           </div>
           {p && (
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.68rem] font-semibold ${SELO_PRAZO[p.tipo]}`}>{p.texto}</span>

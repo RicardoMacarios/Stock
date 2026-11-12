@@ -10,6 +10,8 @@ import { classeEntrada } from '@/lib/classes'
 import { dinheiro, lerNumero, paraCampo, quantidade as fmtQtd } from '@/lib/formato'
 import Painel from '@/components/ui/Painel'
 import { Avatar, CartaoCliente, FormCliente } from '@/components/clientes/PecasCliente'
+import { formatarTelefone, mascararTelefone } from '@/lib/telefone'
+import NumeroResumo from '@/components/ui/NumeroResumo'
 import { CLIENTE_VAZIO, filtrarClientes, salvarCliente, useClientesDaLoja } from './dados'
 
 // /:slug/clientes — quem compra na loja. Cadastro (nome, telefone, endereço,
@@ -62,10 +64,10 @@ export default function ClientesPage({ children }) {
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <Numero icone={Users} rotulo="Clientes" valor={fmtQtd(resumo.total)} />
-        <Numero icone={Banknote} rotulo="Já gastaram na loja" valor={dinheiro(resumo.gasto)} />
-        <Numero icone={ShoppingBag} rotulo="Com condicional em aberto" valor={fmtQtd(resumo.comCondicional)} />
-        <Numero icone={HandCoins} rotulo="Valor em aberto (a receber)" valor={dinheiro(resumo.emAberto)} />
+        <NumeroResumo icone={Users} rotulo="Clientes" valor={fmtQtd(resumo.total)} />
+        <NumeroResumo icone={Banknote} rotulo="Já gastaram na loja" valor={dinheiro(resumo.gasto)} />
+        <NumeroResumo icone={ShoppingBag} rotulo="Com condicional em aberto" valor={fmtQtd(resumo.comCondicional)} />
+        <NumeroResumo icone={HandCoins} rotulo="Valor em aberto (a receber)" valor={dinheiro(resumo.emAberto)} />
       </div>
 
       <section className="rounded-2xl border border-borda bg-card">
@@ -116,7 +118,7 @@ export default function ClientesPage({ children }) {
                       )}
                     </p>
                     <p className="truncate text-xs text-texto-3">
-                      {c.telefone ?? 'sem telefone'}
+                      {c.telefone ? formatarTelefone(c.telefone) : 'sem telefone'}
                       {c.ultima_compra && ` · última compra ${dataCurta(c.ultima_compra)}`}
                     </p>
                   </div>
@@ -147,17 +149,6 @@ export default function ClientesPage({ children }) {
   )
 }
 
-function Numero({ icone: Icone, rotulo, valor, className = '' }) {
-  return (
-    <div className={`flex items-center gap-3 rounded-2xl border border-borda bg-card p-4 ${className}`}>
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-acento/12 text-acento"><Icone size={19} aria-hidden /></span>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-texto-3">{rotulo}</p>
-        <p className="truncate text-lg font-bold tabular-nums">{valor}</p>
-      </div>
-    </div>
-  )
-}
 
 // ── Novo cliente ──────────────────────────────────────────────────────────
 
@@ -227,7 +218,7 @@ function Ficha({ cliente: c, clienteId, fechar, mudou }) {
         <>
           <CartaoCliente cliente={{ ...c, gasto: undefined, em_aberto: undefined }} acoes={
             <button type="button" onClick={() => setEditando({
-              nome: c.nome, telefone: c.telefone ?? '', rua: c.rua ?? '', numero: c.numero ?? '', bairro: c.bairro ?? '',
+              nome: c.nome, telefone: mascararTelefone(c.telefone), rua: c.rua ?? '', numero: c.numero ?? '', bairro: c.bairro ?? '',
               observacoes: c.observacoes ?? '',
             })}
               aria-label="Editar cliente" title="Editar" className="shrink-0 rounded-lg p-2 text-texto-3 hover:bg-elevado hover:text-texto">

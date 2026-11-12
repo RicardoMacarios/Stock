@@ -18,6 +18,7 @@ import MaisAoRolar from '@/components/ui/MaisAoRolar'
 import { categoriasDe, nomeCategoria, normalizarCategoria } from '@/lib/categorias'
 import { codigoLivre, gerarCodigoDaPeca } from '@/lib/qrcode'
 import Etiquetas from '@/components/produtos/Etiquetas'
+import NumeroResumo from '@/components/ui/NumeroResumo'
 import EscolherCategoria from '@/components/produtos/EscolherCategoria'
 
 // /:slug/produtos — cadastrar, editar, dar entrada no estoque e apagar.
@@ -120,10 +121,10 @@ export default function ProdutosPage({ children }) {
 
       {/* Números rápidos */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <Numero icone={Package} rotulo="Produtos" valor={fmtQtd(contagem.todos)} />
-        <Numero icone={Boxes} rotulo="Peças em estoque" valor={fmtQtd(contagem.pecas)} />
-        <Numero icone={Banknote} rotulo="Estoque a preço de venda" valor={dinheiro(contagem.valor)} />
-        <Numero icone={TriangleAlert} rotulo="Precisam repor" valor={fmtQtd(contagem.baixo + contagem.zerado)}
+        <NumeroResumo icone={Package} rotulo="Produtos" valor={fmtQtd(contagem.todos)} />
+        <NumeroResumo icone={Boxes} rotulo="Peças em estoque" valor={fmtQtd(contagem.pecas)} />
+        <NumeroResumo icone={Banknote} rotulo="Estoque a preço de venda" valor={dinheiro(contagem.valor)} />
+        <NumeroResumo icone={TriangleAlert} rotulo="Precisam repor" valor={fmtQtd(contagem.baixo + contagem.zerado)}
           chip={contagem.baixo + contagem.zerado ? 'bg-warn/12 text-warn' : undefined} />
       </div>
 
@@ -231,17 +232,6 @@ export default function ProdutosPage({ children }) {
   )
 }
 
-function Numero({ icone: Icone, rotulo, valor, chip = 'bg-acento/12 text-acento' }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-borda bg-card p-4">
-      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${chip}`}><Icone size={19} aria-hidden /></span>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-texto-3">{rotulo}</p>
-        <p className="truncate text-lg font-bold tabular-nums">{valor}</p>
-      </div>
-    </div>
-  )
-}
 
 // ── Linha ─────────────────────────────────────────────────────────────────
 
