@@ -221,8 +221,9 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
       </div>
 
       {/* Total + finalizar: no celular gruda logo acima das abas de baixo, que têm
-          altura fixa de 4rem (ClienteLayout). Fundo sólido: nada aparece por trás. */}
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 in-data-[teclado=aberto]:bottom-0 rounded-b-2xl border-t border-borda bg-card px-4 py-3 shadow-[0_-8px_16px_-8px_rgb(0_0_0/0.5)] md:p-5 lg:static lg:shadow-none">
+          altura fixa de 4rem (ClienteLayout). Fundo sólido: nada aparece por trás.
+          Teclado aberto: deixa de grudar (o iPhone a levava para cima do teclado). */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 in-data-[teclado=aberto]:static rounded-b-2xl border-t border-borda bg-card px-4 py-3 shadow-[0_-8px_16px_-8px_rgb(0_0_0/0.5)] md:p-5 lg:static lg:shadow-none">
         {temAlgo && (
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm md:mb-3">
             <label className="flex items-center gap-2">
