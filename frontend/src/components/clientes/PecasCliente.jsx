@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MapPin, MessageCircle, Phone, Search, ShoppingBag, UserPlus } from 'lucide-react'
 import { classeEntrada } from '@/lib/classes'
 import { dinheiro, quantidade as fmtQtd } from '@/lib/formato'
+import { formatarTelefone, mascararTelefone, telefoneValido } from '@/lib/telefone'
 import { filtrarClientes, iniciais, linkWhatsApp } from '@/pages/clientes/dados'
 
 // Peças de cliente da loja usadas em Clientes, Condicional e Vendas:
@@ -29,7 +30,7 @@ export function BuscaCliente({ clientes, escolher, cadastrar, autoFocus = true, 
                 <Avatar nome={c.nome} tamanho="h-8 w-8 text-xs" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{c.nome}</span>
-                  {c.telefone && <span className="block text-xs text-texto-3">{c.telefone}</span>}
+                  {c.telefone && <span className="block text-xs text-texto-3 tabular-nums">{formatarTelefone(c.telefone)}</span>}
                   {Number(c.condicionais_abertos) > 0 && (
                     <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-warn/12 px-1.5 py-0.5 text-[0.65rem] font-semibold text-warn">
                       <ShoppingBag size={10} /> condicional em aberto
@@ -54,13 +55,22 @@ export function BuscaCliente({ clientes, escolher, cadastrar, autoFocus = true, 
 
 export function FormCliente({ valor, mudar, autoFocus = true }) {
   const campo = (chave) => (e) => mudar({ ...valor, [chave]: e.target.value })
+  // Aviso de telefone incompleto só depois de sair do campo, não a cada dígito.
+  const [digitandoTelefone, setDigitandoTelefone] = useState(false)
+  const telefoneRuim = !digitandoTelefone && !telefoneValido(valor.telefone)
   return (
     <div className="space-y-3">
       <Campo rotulo="Nome *">
         <input autoFocus={autoFocus} value={valor.nome} onChange={campo('nome')} maxLength={120} placeholder="Nome do cliente" className={classeEntrada} />
       </Campo>
       <Campo rotulo="Telefone / WhatsApp">
-        <input value={valor.telefone ?? ''} onChange={campo('telefone')} maxLength={30} inputMode="tel" placeholder="(16) 99999-0000" className={classeEntrada} />
+        {/* Só números, formatado enquanto digita: (16) 99999-0000. */}
+        <input value={mascararTelefone(valor.telefone)} onChange={(e) => mudar({ ...valor, telefone: mascararTelefone(e.target.value) })}
+          maxLength={15} inputMode="numeric" autoComplete="tel-national" placeholder="(16) 99999-0000"
+          onFocus={() => setDigitandoTelefone(true)} onBlur={() => setDigitandoTelefone(false)}
+          aria-invalid={telefoneRuim}
+          className={`${classeEntrada} tabular-nums ${telefoneRuim ? 'border-danger' : ''}`} />
+        {telefoneRuim && <span className="mt-1 block text-xs font-normal text-danger">Falta número: DDD + telefone.</span>}
       </Campo>
       <Campo rotulo="Rua">
         <input value={valor.rua ?? ''} onChange={campo('rua')} maxLength={200} placeholder="Ex.: Rua das Flores" autoComplete="address-line1"
@@ -112,7 +122,7 @@ export function CartaoCliente({ cliente: c, trocar, acoes }) {
           <p className="font-semibold">{c.nome}</p>
           {c.telefone && (
             <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-texto-2">
-              <Phone size={13} className="text-texto-3" /> {c.telefone}
+              <Phone size={13} className="text-texto-3" /> {formatarTelefone(c.telefone)}
               {whats && (
                 <a href={whats} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-acento hover:underline">
                   <MessageCircle size={12} /> WhatsApp

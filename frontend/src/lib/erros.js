@@ -28,6 +28,7 @@ const MENSAGENS = {
   venda_com_valor_em_aberto: 'Esta venda tem valor em aberto: as peças não podem ser alteradas. Desfaça e lance de novo.',
   venda_sem_pecas: 'Para tirar todas as peças, use "Desfazer" na venda.',
   venda_com_recebimento: 'Esta venda já teve pagamento do valor em aberto; não dá para desfazer.',
+  telefone_invalido: 'Telefone incompleto: informe DDD + número, ex.: (16) 99999-0000.',
   cliente_loja_nao_encontrado: 'Cliente não encontrado. Escolha ou cadastre de novo.',
   condicional_nao_encontrado: 'Condicional não encontrado. Atualize a página.',
   condicional_ja_fechado: 'Este condicional já foi acertado.',

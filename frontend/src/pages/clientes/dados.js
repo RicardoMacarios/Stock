@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { mascararTelefone, telefoneValido } from '@/lib/telefone'
 import { supabase, supabaseConfigurado } from '@/lib/supabase'
 
 // Clientes da loja com o resumo da ficha (gasto, peças, compras, última
@@ -43,9 +44,11 @@ export function filtrarClientes(lista, busca) {
 
 // Salva (cria ou atualiza) e devolve o cliente com o resumo zerado se novo.
 export async function salvarCliente(clienteId, campos, id) {
+  // Telefone incompleto não salva (o campo já avisa); completo vai formatado.
+  if (!telefoneValido(campos.telefone)) return { error: { message: 'telefone_invalido' } }
   const valores = {
     nome: campos.nome.trim(),
-    telefone: campos.telefone?.trim() || null,
+    telefone: mascararTelefone(campos.telefone) || null,
     rua: campos.rua?.trim() || null,
     numero: campos.numero?.trim() || null,
     bairro: campos.bairro?.trim() || null,
