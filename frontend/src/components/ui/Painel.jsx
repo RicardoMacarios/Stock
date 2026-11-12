@@ -21,7 +21,8 @@ export default function Painel({ titulo, fechar, rodape, largura = 'lg:w-[34rem]
           </button>
         </div>
         {/* min-h-0: sem ele o meio cresce do tamanho do conteúdo e empurra o topo para fora da tela */}
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
+        {/* overflow-x-hidden: nada de dentro (campo de data do iPhone, texto longo) empurra o painel para o lado */}
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-5">{children}</div>
         {rodape && <div className="border-t border-borda px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{rodape}</div>}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { LayoutDashboard, Package, FileText, Settings, ShoppingBag, ShoppingCart
 import { useCliente } from '@/context/useCliente'
 import { useAuth } from '@/context/useAuth'
 import { useTemaDoCliente } from '@/hooks/useTemaDoCliente'
+import { useTecladoAberto } from '@/hooks/useTecladoAberto'
 import { itensDeMenu } from '@/config/modulos'
 import Marca from '@/components/ui/Marca'
 
@@ -17,6 +18,8 @@ export default function ClienteLayout() {
   const { slug, config, ehDono } = useCliente()
   const { session, sair } = useAuth()
   useTemaDoCliente(slug, config.tema, config.nome)
+  // Teclado aberto no celular: as abas somem (senão o iPhone as leva para cima do teclado).
+  const teclado = useTecladoAberto()
 
   const itens = itensDeMenu(config, { ehDono }).map((item) => ({
     ...item,
@@ -86,17 +89,21 @@ export default function ClienteLayout() {
         )}
       </header>
 
-      <main className="min-w-0 px-4 pb-28 pt-5 md:px-8 lg:px-10 lg:pb-10 lg:pt-8">
+      {/* overflow-x-clip: se algo de uma tela passar da largura, é cortado aqui em vez de
+          alargar a página — no iPhone isso fazia o Safari afastar o zoom da tela toda. */}
+      <main className="min-w-0 overflow-x-clip px-4 pb-28 pt-5 md:px-8 lg:px-10 lg:pb-10 lg:pt-8">
         <Outlet />
       </main>
 
-      {/* ── Celular: abas embaixo ── */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid border-t border-borda bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      {/* ── Celular: abas embaixo ──
+          Altura FIXA de 4rem (+ área segura do iPhone): a barra "Finalizar venda"
+          gruda logo acima usando o mesmo 4rem. Mudou aqui, mude lá (VendasPage). */}
+      <nav className={`fixed inset-x-0 bottom-0 z-20 ${teclado ? 'hidden' : 'grid'} border-t border-borda bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden`}
         style={{ gridTemplateColumns: `repeat(${itens.length}, minmax(0, 1fr))` }}>
         {itens.map(({ Icone, ...item }) => (
           <NavLink key={item.para} to={item.para} end
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-2.5 text-[0.68rem] font-medium transition ${isActive ? 'text-acento' : 'text-texto-3'}`}>
+              `flex h-16 flex-col items-center justify-center gap-1 text-[0.68rem] font-medium transition ${isActive ? 'text-acento' : 'text-texto-3'}`}>
             <Icone size={20} />
             <span className="max-w-full truncate px-1">{item.rotulo}</span>
           </NavLink>

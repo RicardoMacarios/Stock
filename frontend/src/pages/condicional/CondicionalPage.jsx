@@ -321,12 +321,12 @@ function NovoCondicional({ clienteId, vendedores, fechar, salvo, verAberto }) {
       <div>
         <Passo numero={ativos.length ? '3' : '2'} titulo="Datas" />
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="block text-sm font-medium text-texto-2">
+          <label className="block min-w-0 text-sm font-medium text-texto-2">
             Pegou em
             <input type="date" value={saiuEm} max={diaLocal()} onChange={(e) => setSaiuEm(e.target.value)}
               className={`${classeEntrada} mt-1.5`} />
           </label>
-          <label className="block text-sm font-medium text-texto-2">
+          <label className="block min-w-0 text-sm font-medium text-texto-2">
             Devolver até
             <input type="date" value={devolverAte} min={saiuEm} onChange={(e) => setDevolverAte(e.target.value)}
               className={`${classeEntrada} mt-1.5`} />

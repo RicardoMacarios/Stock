@@ -55,12 +55,28 @@
   .surgir, .grafico-linha, .barra-sobe { animation: none; }
 }
 
+/* overscroll none: no iPhone/Android, puxar a tela para baixo no topo não
+   arrasta mais o sistema inteiro (nem recarrega a página sem querer). */
+html, body { overscroll-behavior-y: none; }
+
 body {
   margin: 0;
   background: var(--color-fundo);
   color: var(--color-texto);
   font-family: var(--font-sans);
 }
+
+/* Campo de data no iPhone: o Safari dá ao input uma largura mínima própria e
+   ignora o w-full — duas datas lado a lado se encavalavam e alargavam o painel
+   inteiro (o formulário "dançava" para o lado). */
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+}
+input[type='date']::-webkit-date-and-time-value { text-align: left; }
 
 /* Etiquetas da peça (components/produtos/Etiquetas.jsx): na tela ficam
    escondidas; ao imprimir, só elas saem, uma por página do tamanho da

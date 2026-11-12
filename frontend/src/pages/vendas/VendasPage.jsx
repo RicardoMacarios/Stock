@@ -220,13 +220,14 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
           valido={pagoValido} emAberto={emAberto} pessoa={pessoa} />
       </div>
 
-      {/* Total + finalizar (gruda embaixo no celular, acima das abas) */}
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] rounded-b-2xl border-t border-borda bg-card/95 p-4 backdrop-blur md:p-5 lg:static lg:bg-card">
+      {/* Total + finalizar: no celular gruda logo acima das abas de baixo, que têm
+          altura fixa de 4rem (ClienteLayout). Fundo sólido: nada aparece por trás. */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 in-data-[teclado=aberto]:bottom-0 rounded-b-2xl border-t border-borda bg-card px-4 py-3 shadow-[0_-8px_16px_-8px_rgb(0_0_0/0.5)] md:p-5 lg:static lg:shadow-none">
         {temAlgo && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm md:mb-3">
             <label className="flex items-center gap-2">
               <span className="text-texto-2">Desconto</span>
-              <span className={`flex h-8 items-center rounded-lg border bg-fundo px-2 focus-within:border-acento ${descontoInvalido ? 'border-danger' : 'border-borda-forte'}`}>
+              <span className={`flex h-7 items-center rounded-lg border bg-fundo px-2 focus-within:border-acento ${descontoInvalido ? 'border-danger' : 'border-borda-forte'}`}>
                 <input inputMode="decimal" value={desconto} onChange={(e) => setDesconto(e.target.value)} placeholder="0"
                   aria-label="Desconto em porcentagem" className="w-10 bg-transparent text-right tabular-nums outline-none" />
                 <span className="pl-1 text-xs text-texto-3">%</span>
@@ -240,19 +241,19 @@ function Caixa({ clienteId, produtos, vendedores, todosVendedores, slug, ehDono,
             {descontoInvalido && <p className="text-xs text-danger">Use de 0 a 100%</p>}
           </div>
         )}
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs text-texto-3">
               {pecas ? `${fmtQtd(pecas)} peça${pecas === 1 ? '' : 's'}` : 'Total'}
               {juntar && ` · ${fmtQtd(doCond.pecas)} do condicional`}
             </p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums md:text-3xl">
+            <p className="text-xl font-bold leading-tight tracking-tight tabular-nums md:text-3xl">
               {pct > 0 && <span className="mr-2 align-middle text-base font-normal text-texto-3 line-through">{dinheiro(bruto)}</span>}
               {dinheiro(total)}
             </p>
           </div>
           <button type="button" onClick={finalizar} disabled={enviando || !temAlgo}
-            className="flex items-center gap-2 rounded-xl bg-acento px-5 py-3 font-semibold text-sobre-acento shadow-lg shadow-acento/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none md:px-6">
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-acento px-4 py-2.5 font-semibold text-sobre-acento shadow-lg shadow-acento/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none md:px-6">
             <Check size={18} /> {enviando ? 'Registrando…' : 'Finalizar venda'}
           </button>
         </div>

@@ -38,7 +38,7 @@ export default function VendedoresSecao({ clienteId }) {
       <form onSubmit={adicionar} className="mt-4 flex gap-2">
         <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} placeholder="Nome do vendedor"
           aria-label="Nome do vendedor"
-          className="h-11 w-full rounded-xl border border-borda-forte bg-fundo px-3 text-base outline-none transition placeholder:text-texto-3 focus:border-acento focus:ring-2 focus:ring-acento/25 lg:text-sm" />
+          className="h-11 w-full min-w-0 rounded-xl border border-borda-forte bg-fundo px-3 text-base outline-none transition placeholder:text-texto-3 focus:border-acento focus:ring-2 focus:ring-acento/25 lg:text-sm" />
         <button disabled={salvando || !nome.trim()}
           className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-acento px-4 text-sm font-semibold text-sobre-acento transition hover:brightness-110 disabled:opacity-40">
           <Plus size={16} /> Adicionar

@@ -38,7 +38,9 @@ export default function ConfiguracoesPage() {
 
       <div className="space-y-6">
         <Aparencia cliente={cliente} config={config} recarregar={recarregar} />
-        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        {/* grid-cols-1 = minmax(0, 1fr): sem ele, no celular a coluna crescia até
+            caber o link inteiro da loja e a página ficava mais larga que a tela. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
           <VendedoresSecao clienteId={cliente.id} />
           <LinkDaLoja slug={slug} />
         </div>
@@ -101,7 +103,7 @@ function Aparencia({ cliente, config, recarregar }) {
         <span className="ml-auto text-xs text-texto-3">Vale na hora para toda a equipe</span>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_22rem]">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6 p-5">
           <label className="block text-sm font-medium text-texto-2">
             Nome da empresa
@@ -233,11 +235,11 @@ function LinkDaLoja({ slug }) {
   }
 
   return (
-    <section className="rounded-2xl border border-borda bg-card p-5">
+    <section className="min-w-0 rounded-2xl border border-borda bg-card p-5">
       <h2 className="flex items-center gap-2 font-semibold"><Link2 size={18} className="text-acento" /> Endereço da loja</h2>
       <p className="mt-1 text-sm text-texto-3">Mande para a equipe: abre direto o login com a cara da sua loja.</p>
       <div className="mt-4 flex gap-2">
-        <code className="flex min-w-0 flex-1 items-center truncate rounded-xl border border-borda-forte bg-fundo px-3 py-2.5 text-sm text-texto-2">
+        <code className="block min-w-0 flex-1 truncate rounded-xl border border-borda-forte bg-fundo px-3 py-2.5 text-sm text-texto-2">
           {link.replace(/^https?:\/\//, '')}
         </code>
         <button onClick={copiar}
