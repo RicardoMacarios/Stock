@@ -62,10 +62,11 @@ export default function GraficoDoMes({ dias, diasAnterior, vendas, vendedores, m
           <h2 className="font-semibold">Vendas do mês</h2>
           <p className="mt-0.5 text-xs text-texto-3">{subtitulo}</p>
         </div>
-        <div role="tablist" aria-label="Modo do gráfico" className="flex max-w-full overflow-x-auto rounded-xl border border-borda bg-fundo/60 p-1">
+        {/* No celular: 3 colunas iguais na largura toda (antes rolava de lado e "Acumulado" ficava escondida). */}
+        <div role="tablist" aria-label="Modo do gráfico" className="grid w-full grid-cols-3 rounded-xl border border-borda bg-fundo/60 p-1 sm:flex sm:w-auto">
           {MODOS.map(([valor, rotulo]) => (
             <button key={valor} role="tab" aria-selected={modo === valor} onClick={() => setModo(valor)}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              className={`min-w-0 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-[0.8rem] font-medium transition sm:px-3 sm:text-sm ${
                 modo === valor ? 'bg-acento text-sobre-acento shadow' : 'text-texto-2 hover:text-texto'}`}>
               {rotulo}
             </button>
@@ -126,13 +127,12 @@ export default function GraficoDoMes({ dias, diasAnterior, vendas, vendedores, m
 function Chip({ icone: Icone, rotulo, valor, detalhe, destaque = false }) {
   return (
     <div className={`min-w-0 rounded-xl border px-3 py-2.5 ${destaque ? 'border-acento/40 bg-acento/10' : 'border-borda bg-fundo/40'}`}>
-      <p className="flex items-center gap-1.5 truncate text-xs text-texto-3">
-        <Icone size={13} aria-hidden className="shrink-0 text-acento" /> {rotulo}
+      {/* Sem truncate: no celular o chip é estreito e cortava o valor ("R$ 136,09 no rit…"). */}
+      <p className="flex items-start gap-1.5 text-xs leading-tight text-texto-3 first-letter:uppercase">
+        <Icone size={13} aria-hidden className="mt-px shrink-0 text-acento" /> <span>{rotulo}</span>
       </p>
-      <p className="mt-0.5 truncate font-semibold tabular-nums">
-        {valor}
-        {detalhe && <span className="ml-1.5 text-xs font-normal text-texto-3">{detalhe}</span>}
-      </p>
+      <p className="mt-1 break-words font-semibold leading-tight tabular-nums">{valor}</p>
+      {detalhe && <p className="mt-0.5 text-xs leading-tight text-texto-3 tabular-nums">{detalhe}</p>}
     </div>
   )
 }

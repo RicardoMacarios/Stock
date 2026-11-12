@@ -41,20 +41,25 @@ export default function FormasDePagamento({ formas, className = '' }) {
 
       <ul className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {itens.map(({ chave, rotulo, Icone, cor, valor, lucro, vendas }) => (
-          <li key={chave} className="min-w-0 rounded-xl border border-borda p-4" style={{ background: `linear-gradient(135deg, ${cor}14, transparent 70%)` }}>
+          <li key={chave} className="min-w-0 rounded-xl border border-borda p-3 sm:p-4" style={{ background: `linear-gradient(135deg, ${cor}14, transparent 70%)` }}>
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg" style={{ background: `${cor}26`, color: cor }}>
+                {/* Ícone só a partir de sm: no celular ele empurrava "Crédito"/"Dinheiro" para "Cré…". */}
+                <span className="hidden h-7 w-7 shrink-0 place-items-center rounded-lg sm:grid" style={{ background: `${cor}26`, color: cor }}>
                   <Icone size={15} aria-hidden />
                 </span>
+                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full sm:hidden" style={{ background: cor }} />
                 <span className="truncate">{rotulo}</span>
               </span>
-              <span className="text-xs font-semibold tabular-nums" style={{ color: cor }}>{pct(valor)}%</span>
+              <span className="shrink-0 text-xs font-semibold tabular-nums" style={{ color: cor }}>{pct(valor)}%</span>
             </div>
-            <p className="mt-3 truncate text-xl font-bold tracking-tight tabular-nums">{dinheiro(valor)}</p>
-            <p className="mt-0.5 truncate text-xs text-texto-3 tabular-nums">
+            {/* Sem truncate: no celular o quadro é estreito e cortava o lucro e as vendas. */}
+            <p className="mt-3 text-lg font-bold leading-tight tracking-tight tabular-nums break-words sm:text-xl">{dinheiro(valor)}</p>
+            <p className="mt-1 text-xs text-texto-3 tabular-nums">
               lucro <strong className="text-texto-2">{dinheiro(lucro)}</strong>
-              {vendas > 0 && <> · {fmtQtd(vendas)} venda{vendas === 1 ? '' : 's'}</>}
+            </p>
+            <p className="text-xs text-texto-3 tabular-nums">
+              {vendas > 0 ? `${fmtQtd(vendas)} venda${vendas === 1 ? '' : 's'}` : 'nenhuma venda'}
             </p>
           </li>
         ))}

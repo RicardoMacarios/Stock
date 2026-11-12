@@ -21,6 +21,12 @@ const METRICAS = {
 
 const maiusculo = (t) => t.charAt(0).toUpperCase() + t.slice(1)
 
+// "R$ 1,2 mil" → ["1,2", "mil"]; "R$ 630" → ["630", null]. Só para o rótulo no celular.
+function celular(texto) {
+  const [numero, ...resto] = String(texto).replace(/^R\$\s*/, '').split(/\s+/)
+  return [numero, resto.join(' ') || null]
+}
+
 export default function DiasDaSemana({ semana, semanaAnterior, nomeAnterior, className = '' }) {
   const [metrica, setMetrica] = useState('valor')
   const [foco, setFoco] = useState(null)
@@ -158,8 +164,15 @@ export default function DiasDaSemana({ semana, semanaAnterior, nomeAnterior, cla
                   onPointerEnter={() => setFoco(s.dia)} onFocus={() => setFoco(s.dia)} onBlur={() => setFoco(null)}
                   aria-label={`${NOMES[s.dia]}: média de ${m.formato(v)}`}
                   className={`group flex min-w-0 flex-col items-center rounded-xl outline-none transition-opacity duration-150 focus-visible:ring-2 focus-visible:ring-acento ${apagado ? 'opacity-55' : ''}`}>
-                  <span className={`h-6 truncate text-[0.7rem] font-semibold tabular-nums sm:text-xs ${ehMelhor || emFoco ? 'text-texto' : 'text-texto-3'}`}>
-                    {s.quantos ? m.curto(v) : '—'}
+                  <span className={`mb-1 flex h-8 flex-col items-center justify-end text-[0.7rem] font-semibold leading-none tabular-nums sm:h-6 sm:justify-start sm:text-xs ${ehMelhor || emFoco ? 'text-texto' : 'text-texto-3'}`}>
+                    {!s.quantos ? '—' : (
+                      <>
+                        {/* Celular: a coluna tem ~33px; sem "R$" e com "mil" embaixo cabe sem encavalar. */}
+                        <span className="sm:hidden">{celular(m.curto(v))[0]}</span>
+                        {celular(m.curto(v))[1] && <span className="mt-0.5 text-[0.6rem] font-normal sm:hidden">{celular(m.curto(v))[1]}</span>}
+                        <span className="hidden sm:inline">{m.curto(v)}</span>
+                      </>
+                    )}
                   </span>
                   <span className={`relative flex h-44 w-full items-end justify-center rounded-lg transition-colors ${emFoco ? 'bg-elevado/70' : ''}`}>
                     <span className={`barra-sobe relative block w-[70%] max-w-14 rounded-t-[5px] transition-[filter] ${

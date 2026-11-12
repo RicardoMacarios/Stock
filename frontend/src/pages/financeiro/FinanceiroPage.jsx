@@ -228,7 +228,7 @@ function VendedorDoMes({ ranking, totalPecas, className = '' }) {
                   {totalPecas ? `${Math.round((lider.pecas / totalPecas) * 100)}% das peças vendidas no mês` : ''}
                 </p>
               </div>
-              <div className="grid w-full grid-cols-3 gap-2 border-t border-borda/60 pt-3 2xl:w-auto 2xl:gap-5 2xl:border-0 2xl:pt-0">
+              <div className="grid w-full grid-cols-[auto_1fr_1fr] gap-3 border-t border-borda/60 pt-3 2xl:w-auto 2xl:gap-5 2xl:border-0 2xl:pt-0">
                 <Mini rotulo="Peças" valor={fmtQtd(lider.pecas)} grande />
                 <Mini rotulo="Vendido" valor={dinheiro(lider.valor)} />
                 <Mini rotulo="Lucro" valor={dinheiro(lider.lucro)} />
@@ -269,7 +269,8 @@ function Mini({ rotulo, valor, grande = false }) {
   return (
     <div className="min-w-0 text-center 2xl:text-right">
       <p className="text-[0.68rem] uppercase tracking-wider text-texto-3">{rotulo}</p>
-      <p className={`truncate font-bold tabular-nums ${grande ? 'text-2xl' : 'text-sm sm:text-base'}`}>{valor}</p>
+      {/* Sem truncate: no celular cortava "R$ 4.39…". Quebra a linha se precisar. */}
+      <p className={`break-words font-bold leading-tight tabular-nums ${grande ? 'text-2xl' : 'text-sm sm:text-base'}`}>{valor}</p>
     </div>
   )
 }
